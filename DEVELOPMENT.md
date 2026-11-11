@@ -8,15 +8,17 @@ Status values: **Complete**, **Not started**.
 - **Implementation status:** Complete.
 - **Files affected:** `package.json`, `package-lock.json`, `.gitignore`, `index.html`, `vite.config.js`, `public/manifest.json`, `public/icons/`, `src/App.jsx`, `src/main.jsx`, `src/index.css`, `src/background/serviceWorker.js`, `README.md`, `ARCHITECTURE.md`, `DEVELOPMENT.md`, `.github/copilot-instructions.md`.
 - **Testing requirements:** Run `npm run build`; verify the output manifest, new-tab page, service worker, and icon references exist. Load `dist/` in Chrome and open a new tab as a manual smoke test.
-- **Known issues:** Chrome runtime loading and the new-tab page have not yet been manually tested.
+- **Known issues:** None recorded for the project foundation.
 
 ## Milestone 2: Eera floating UI and orb
 
-- **Objective:** Add the first reusable assistant interface and initial orb surface.
-- **Implementation status:** Not started.
-- **Files affected:** To be determined; expected work in `src/components/`, `src/App.jsx`, and styles.
-- **Testing requirements:** Verify rendering, responsive layout, and keyboard/accessibility behavior in the supported extension surface.
-- **Known issues:** Visual design and supported host-page integration are not defined yet.
+- **Objective:** Add the reusable floating assistant interface to normal webpages and the custom new-tab page.
+- **Implementation status:** Complete.
+- **Files affected:** `package.json`, `public/manifest.json`, `vite.content.config.js`, `src/App.jsx`, `src/index.css`, `src/components/EeraOrb.jsx`, `src/components/EeraWidget.jsx`, `src/components/EeraPanel.jsx`, `src/components/AssistantStatus.jsx`, `src/components/Transcript.jsx`, `src/components/eera-widget.css`, `src/content/contentScript.jsx`, `README.md`, `ARCHITECTURE.md`, `DEVELOPMENT.md`.
+- **Features implemented:** Static iridescent orb with hover/focus feedback; click and keyboard toggle for the assistant panel; greeting, ready status, voice placeholder, and waiting transcript; shared React widget on the new-tab page and in an isolated Shadow DOM on HTTP/HTTPS pages.
+- **Testing requirements:** `npm run build`; verify manifest-referenced files and the self-contained content script; render and interact with the new-tab app; manually reload the unpacked extension and test an HTTP page and an HTTPS page in Chrome.
+- **Build verification:** Production build succeeded for the new-tab page, service worker, and single-file content script. Manifest references and embedded content-script UI/style markers were verified.
+- **Known issues:** Website injection has not been manually tested in Chrome in this implementation. The widget is static; voice and page interaction are not implemented.
 
 ## Milestone 3: Orb animations and interaction states
 
@@ -105,4 +107,3 @@ Status values: **Complete**, **Not started**.
 - **Files affected:** To be determined; likely tests, build configuration, documentation, and release assets.
 - **Testing requirements:** Run automated suites and production build; manually verify supported Chrome flows and package contents.
 - **Known issues:** The complete feature and browser compatibility matrix is not yet known.
-
