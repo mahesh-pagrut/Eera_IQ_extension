@@ -152,6 +152,12 @@
   background: #dd785b;
 }
 
+.eera-status__dot--listening,
+.eera-status__dot--processing,
+.eera-status__dot--error {
+  box-shadow: 0 0 0 3px rgb(108 78 232 / 12%);
+}
+
 .eera-state-preview {
   position: absolute;
   bottom: 7px;
