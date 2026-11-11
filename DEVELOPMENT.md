@@ -33,10 +33,13 @@ Status values: **Complete**, **Not started**.
 ## Milestone 4: Microphone integration and speech recognition
 
 - **Objective:** Capture user speech and expose recognition results independently of command execution.
-- **Implementation status:** Not started.
-- **Files affected:** To be determined; expected work in speech services, UI state, and any required manifest configuration.
-- **Testing requirements:** Test permission denial, supported languages, recognition errors, lifecycle behavior, and Chrome support.
-- **Known issues:** Recognition context and long-running feasibility have not been established; do not assume an offscreen document is suitable.
+- **Implementation status:** Complete (build and simulated lifecycle verified; actual speech tests remain environment-limited).
+- **Architecture decision:** Use feature-detected Web Speech API recognition in the visible UI context, started directly by the Listen click. Do not use the MV3 worker or an offscreen document. Use one utterance per explicit start and no automatic restart. The browser requests microphone access at runtime; no manifest microphone permission is declared.
+- **Files affected:** `src/services/speechRecognition.js`, `src/components/EeraWidget.jsx`, `src/components/EeraPanel.jsx`, `src/components/Transcript.jsx`, `src/components/AssistantStatus.jsx`, `src/components/eera-widget.css`, `README.md`, `ARCHITECTURE.md`, `DEVELOPMENT.md`.
+- **Features implemented:** Listen/Stop control; default `en-IN` and selectable `en-US`/`hi-IN`; interim/final transcript updates; actual recognition status drives idle/listening/processing/error orb states; close-panel stop/abort; readable handling for permission denial, unavailable API, missing microphone, no speech, network/service errors, and unexpected termination; retry after errors.
+- **Testing completed:** `npm run build` passed for new-tab and content-script bundles. A fake SpeechRecognition browser harness exercised interim/final text, language configuration, stop, retry after permission error, processing/listening/idle/error states, and stop-on-panel-close. Service-level tests verified duplicate-start prevention, single recognizer creation, teardown, unavailable API handling, and permission-denied messaging. A real Web Speech start was attempted in the available Chrome-based development browser; the API was present but returned `network`, so no real spoken transcript or language accuracy was verified.
+- **Testing still required in installed Chrome:** Allow and deny microphone permission on the new-tab and website contexts; speak English, Hindi, and mixed Hindi-English; test an unavailable microphone/API; verify recognition stops via Stop, panel close, navigation, and extension reload.
+- **Known issues:** Chrome may use an online speech-recognition service; internet access and service availability are outside Eera's control. SpeechRecognition availability and microphone permission behavior vary by browser/context. Hinglish accuracy is not guaranteed. There is no speech synthesis, wake word, or command processing.
 
 ## Milestone 5: Speech synthesis and voice configuration
 
