@@ -1,7 +1,27 @@
 import AssistantStatus from './AssistantStatus.jsx';
 import Transcript from './Transcript.jsx';
+import {
+  DEFAULT_RECOGNITION_LANGUAGE,
+  SUPPORTED_RECOGNITION_LANGUAGES,
+} from '../services/speechRecognition.js';
 
-function EeraPanel({ assistantState, isOpen }) {
+const LANGUAGE_LABELS = Object.freeze({
+  'en-IN': 'English (India)',
+  'en-US': 'English (US)',
+  'hi-IN': 'Hindi / Hinglish (Hindi recognition)',
+});
+
+function EeraPanel({
+  assistantState,
+  errorMessage,
+  isListening,
+  isOpen,
+  language = DEFAULT_RECOGNITION_LANGUAGE,
+  onLanguageChange,
+  onToggleListening,
+  recognitionStatus,
+  transcript,
+}) {
   return (
     <section
       id="eera-assistant-panel"
@@ -15,7 +35,10 @@ function EeraPanel({ assistantState, isOpen }) {
         </div>
         <div>
           <h2 className="eera-panel__name">Eera</h2>
-          <AssistantStatus assistantState={assistantState} />
+          <AssistantStatus
+            assistantState={assistantState}
+            recognitionStatus={recognitionStatus}
+          />
         </div>
       </div>
       <p className="eera-panel__greeting">
@@ -23,9 +46,38 @@ function EeraPanel({ assistantState, isOpen }) {
         today?
       </p>
       <p className="eera-panel__voice-note">
-        Voice interaction coming soon.
+        Microphone starts only when you choose Listen. Chrome may use an online
+        speech service; Eera does not save audio.
       </p>
-      <Transcript />
+      <label className="eera-language">
+        <span>Recognition language</span>
+        <select
+          value={language}
+          onChange={(event) => onLanguageChange(event.target.value)}
+          disabled={
+            isListening ||
+            recognitionStatus === 'starting' ||
+            recognitionStatus === 'stopping'
+          }
+        >
+          {SUPPORTED_RECOGNITION_LANGUAGES.map((supportedLanguage) => (
+            <option key={supportedLanguage} value={supportedLanguage}>
+              {LANGUAGE_LABELS[supportedLanguage]}
+            </option>
+          ))}
+        </select>
+      </label>
+      <button
+        className="eera-listen-button"
+        type="button"
+        onClick={onToggleListening}
+        disabled={
+          recognitionStatus === 'starting' || recognitionStatus === 'stopping'
+        }
+      >
+        {isListening ? 'Stop listening' : 'Listen'}
+      </button>
+      <Transcript errorMessage={errorMessage} transcript={transcript} />
     </section>
   );
 }
