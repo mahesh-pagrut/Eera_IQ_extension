@@ -1,13 +1,30 @@
-function EeraOrb({ isOpen, onClick }) {
+import {
+  ASSISTANT_STATE_LABELS,
+  ASSISTANT_STATES,
+} from './assistantStates.js';
+
+function EeraOrb({ assistantState = ASSISTANT_STATES.IDLE, isOpen, onClick }) {
+  const stateLabel = ASSISTANT_STATE_LABELS[assistantState];
+  const accessibleState =
+    assistantState === ASSISTANT_STATES.ERROR
+      ? 'in an error state'
+      : stateLabel.toLowerCase();
+
   return (
     <button
       type="button"
-      className="eera-orb"
-      aria-label={isOpen ? 'Close Eera assistant' : 'Open Eera assistant'}
+      className={`eera-orb eera-orb--${assistantState}`}
+      data-state={assistantState}
+      aria-label={`Eera is ${accessibleState}. ${isOpen ? 'Close' : 'Open'} Eera assistant.`}
       aria-expanded={isOpen}
       aria-controls="eera-assistant-panel"
       onClick={onClick}
     >
+      <span className="eera-orb__aura" aria-hidden="true" />
+      <span className="eera-orb__waves" aria-hidden="true">
+        <span />
+        <span />
+      </span>
       <span className="eera-orb__core" aria-hidden="true">
         <svg viewBox="0 0 32 32" focusable="false">
           <path
