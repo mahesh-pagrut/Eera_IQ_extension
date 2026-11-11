@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "Eera",
   "version": "0.1.0",
-  "description": "A personal AI browser assistant.",
+  "description": "A personal AI browser assistant with a floating interface.",
   "icons": {
     "16": "icons/icon16.png",
     "48": "icons/icon48.png",
@@ -11,6 +11,22 @@
   "background": {
     "service_worker": "background/serviceWorker.js"
   },
+  "host_permissions": [
+    "http://*/*",
+    "https://*/*"
+  ],
+  "content_scripts": [
+    {
+      "matches": [
+        "http://*/*",
+        "https://*/*"
+      ],
+      "js": [
+        "content/contentScript.js"
+      ],
+      "run_at": "document_idle"
+    }
+  ],
   "chrome_url_overrides": {
     "newtab": "index.html"
   }
