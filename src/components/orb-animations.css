@@ -1,0 +1,331 @@
+.eera-orb--idle .eera-orb__aura {
+  animation: eera-idle-aura 5.2s ease-in-out infinite;
+}
+
+.eera-orb--idle .eera-orb__aura::before {
+  animation: eera-gradient-drift 36s linear infinite;
+}
+
+.eera-orb--idle .eera-orb__core {
+  animation: eera-idle-breathe 5.2s ease-in-out infinite;
+}
+
+.eera-orb--listening .eera-orb__aura {
+  opacity: 0.72;
+  transform: scale(1.05);
+  filter: blur(15px);
+}
+
+.eera-orb--listening .eera-orb__core {
+  animation: eera-listening-pulse 1.8s ease-in-out infinite;
+}
+
+.eera-orb--listening .eera-orb__waves span {
+  animation: eera-listening-wave 2.4s ease-out infinite;
+}
+
+.eera-orb--listening .eera-orb__waves span:nth-child(2) {
+  animation-delay: 1.2s;
+}
+
+.eera-orb--processing .eera-orb__aura {
+  opacity: 0.57;
+  animation: eera-processing-rotate 5s linear infinite;
+}
+
+.eera-orb--processing .eera-orb__core {
+  animation: eera-processing-think 2.8s ease-in-out infinite;
+}
+
+.eera-orb--speaking .eera-orb__aura {
+  opacity: 0.82;
+  box-shadow:
+    0 0 14px rgb(246 154 218 / 36%),
+    0 0 28px rgb(164 153 255 / 28%);
+  animation: eera-speaking-aura 1.15s ease-in-out infinite;
+}
+
+.eera-orb--speaking .eera-orb__core {
+  animation: eera-speaking-pulse 0.82s ease-in-out infinite;
+}
+
+.eera-orb--error {
+  border-color: rgb(255 235 220 / 88%);
+  box-shadow:
+    0 0 0 5px rgb(252 128 91 / 12%),
+    0 7px 22px rgb(176 73 46 / 20%),
+    inset 0 2px 6px rgb(255 255 255 / 85%),
+    inset 0 -5px 10px rgb(117 81 173 / 13%);
+}
+
+.eera-orb--error .eera-orb__aura {
+  opacity: 0.62;
+  animation: eera-error-warning 2.4s ease-in-out infinite;
+}
+
+.eera-orb--error .eera-orb__aura::before {
+  background: conic-gradient(
+    from 20deg,
+    #ffba78,
+    #ff806b,
+    #f4a16d,
+    #ffd09b,
+    #ff806b
+  );
+}
+
+.eera-orb--error .eera-orb__core {
+  color: #fff7f1;
+}
+
+.eera-orb__aura {
+  position: absolute;
+  z-index: 0;
+  inset: -9px;
+  border-radius: 50%;
+  opacity: 0.38;
+  filter: blur(13px);
+  pointer-events: none;
+  transform: scale(0.9);
+  will-change: transform, opacity;
+}
+
+.eera-orb__aura::before {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: conic-gradient(
+    from 35deg,
+    #ffb9db,
+    #c4aaff,
+    #9ed5ff,
+    #a2eddd,
+    #ffe49a,
+    #ffb9db
+  );
+  content: "";
+}
+
+.eera-orb__waves {
+  position: absolute;
+  z-index: 2;
+  inset: -1px;
+  border-radius: 50%;
+  pointer-events: none;
+}
+
+.eera-orb__waves span {
+  position: absolute;
+  inset: 0;
+  border: 1px solid rgb(158 134 255 / 58%);
+  border-radius: inherit;
+  opacity: 0;
+  transform: scale(1);
+}
+
+.eera-orb--listening .eera-orb__waves span {
+  border-color: rgb(159 131 255 / 56%);
+  opacity: 0.7;
+}
+
+.eera-orb__core {
+  will-change: transform;
+}
+
+.eera-orb--speaking .eera-orb__core {
+  filter: drop-shadow(0 0 5px rgb(255 255 255 / 58%));
+}
+
+.eera-status__dot--listening {
+  background: #8c70e8;
+}
+
+.eera-status__dot--processing {
+  background: #6a9bdd;
+}
+
+.eera-status__dot--speaking {
+  background: #b66fc8;
+}
+
+.eera-status__dot--error {
+  background: #dd785b;
+}
+
+.eera-state-preview {
+  position: absolute;
+  bottom: 7px;
+  left: 78px;
+  display: grid;
+  gap: 3px;
+  min-width: 154px;
+  padding: 7px 9px;
+  border: 1px solid rgb(255 255 255 / 75%);
+  border-radius: 12px;
+  background: rgb(255 255 255 / 88%);
+  box-shadow: 0 5px 18px rgb(48 37 78 / 12%);
+  color: #625e73;
+  font-size: 10px;
+  line-height: 1.2;
+}
+
+.eera-state-preview select {
+  width: 100%;
+  padding: 3px 4px;
+  border: 0;
+  border-radius: 5px;
+  background: transparent;
+  color: #302b47;
+  font: inherit;
+  font-size: 12px;
+}
+
+.eera-state-preview select:focus-visible {
+  outline: 2px solid #6c4ee8;
+  outline-offset: 2px;
+}
+
+@keyframes eera-idle-aura {
+  0%,
+  100% {
+    opacity: 0.3;
+    transform: scale(0.88);
+  }
+  50% {
+    opacity: 0.48;
+    transform: scale(1.02);
+  }
+}
+
+@keyframes eera-gradient-drift {
+  to {
+    transform: rotate(1turn);
+  }
+}
+
+@keyframes eera-idle-breathe {
+  0%,
+  100% {
+    transform: scale(0.99);
+  }
+  50% {
+    transform: scale(1.025);
+  }
+}
+
+@keyframes eera-listening-wave {
+  0% {
+    opacity: 0.52;
+    transform: scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(1.95);
+  }
+}
+
+@keyframes eera-listening-pulse {
+  0%,
+  100% {
+    transform: scale(0.98);
+  }
+  50% {
+    transform: scale(1.045);
+  }
+}
+
+@keyframes eera-processing-rotate {
+  to {
+    transform: rotate(1turn) scale(1.02);
+  }
+}
+
+@keyframes eera-processing-think {
+  0%,
+  100% {
+    transform: translateY(0) scale(1);
+  }
+  50% {
+    transform: translateY(-1px) scale(1.035);
+  }
+}
+
+@keyframes eera-speaking-aura {
+  0%,
+  100% {
+    opacity: 0.55;
+    transform: scale(0.93);
+  }
+  50% {
+    opacity: 0.9;
+    transform: scale(1.16);
+  }
+}
+
+@keyframes eera-speaking-pulse {
+  0%,
+  100% {
+    transform: scale(0.98);
+  }
+  50% {
+    transform: scale(1.07);
+  }
+}
+
+@keyframes eera-error-warning {
+  0%,
+  100% {
+    opacity: 0.35;
+    transform: scale(0.92);
+  }
+  50% {
+    opacity: 0.68;
+    transform: scale(1.07);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .eera-orb--idle .eera-orb__aura,
+  .eera-orb--idle .eera-orb__aura::before,
+  .eera-orb--idle .eera-orb__core,
+  .eera-orb--listening .eera-orb__core,
+  .eera-orb--listening .eera-orb__waves span,
+  .eera-orb--processing .eera-orb__aura,
+  .eera-orb--processing .eera-orb__core,
+  .eera-orb--speaking .eera-orb__aura,
+  .eera-orb--speaking .eera-orb__core,
+  .eera-orb--error .eera-orb__aura {
+    animation: none;
+  }
+
+  .eera-orb--idle .eera-orb__aura {
+    opacity: 0.38;
+    transform: scale(0.96);
+  }
+
+  .eera-orb--listening .eera-orb__waves span {
+    opacity: 0.3;
+    transform: scale(1.35);
+  }
+
+  .eera-orb--processing .eera-orb__aura {
+    transform: none;
+  }
+
+  .eera-orb--speaking .eera-orb__aura {
+    opacity: 0.72;
+  }
+
+  .eera-orb--error .eera-orb__aura {
+    opacity: 0.48;
+    transform: none;
+  }
+
+  .eera-orb__core {
+    will-change: auto;
+  }
+
+  .eera-orb__aura {
+    will-change: auto;
+  }
+}
