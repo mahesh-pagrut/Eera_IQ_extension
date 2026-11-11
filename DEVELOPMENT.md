@@ -23,10 +23,12 @@ Status values: **Complete**, **Not started**.
 ## Milestone 3: Orb animations and interaction states
 
 - **Objective:** Add custom CSS animation and clear idle/active interaction states.
-- **Implementation status:** Not started.
-- **Files affected:** To be determined; expected work in orb components and CSS.
-- **Testing requirements:** Verify each state, reduced-motion behavior, and animation performance.
-- **Known issues:** Depends on the Milestone 2 interaction design.
+- **Implementation status:** Complete.
+- **Files affected:** `src/components/assistantStates.js`, `src/components/AssistantStatePreview.jsx`, `src/components/AssistantStatus.jsx`, `src/components/EeraOrb.jsx`, `src/components/EeraPanel.jsx`, `src/components/EeraWidget.jsx`, `src/components/orb-animations.css`, `src/components/eera-widget.css`, `README.md`, `ARCHITECTURE.md`, `DEVELOPMENT.md`.
+- **Features implemented:** Five state-driven CSS animation variants; state-aware accessible orb labels and panel status; reduced-motion alternatives; a dev-only state selector in the Vite development page.
+- **Testing requirements:** Run `npm run build`; check both generated styles contain all state selectors/keyframes and reduced-motion rules; confirm the production bundle omits preview controls; use the development selector to check all states and reduced-motion behavior; reload the unpacked extension and inspect new-tab/website surfaces in Chrome.
+- **Build verification:** Production builds succeeded for the new-tab page and standalone content script. Verified state styles and reduced-motion rules in both output bundles and confirmed preview-control text is absent from production JavaScript. Exercised all five states using the development selector and verified computed animation names; with reduced motion emulated, each animated element reported `animation: none`.
+- **Known issues:** Speaking is a simulated visual state; no audio activity drives it. Website rendering is shared through the verified content-script build, but extension-site animation appearance has not been manually re-verified in Chrome for this milestone.
 
 ## Milestone 4: Microphone integration and speech recognition
 
