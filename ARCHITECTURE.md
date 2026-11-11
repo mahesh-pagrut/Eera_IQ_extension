@@ -40,15 +40,23 @@ The content script in `src/content/contentScript.jsx` creates one extension-owne
 
 The React application runs as the extension's new-tab page, an extension-controlled surface that works around Chrome's restrictions on injecting into internal pages. It renders the same `EeraWidget` as the website content script. Website host permissions are not needed for this extension-owned page.
 
+## Speech recognition
+
+`src/services/speechRecognition.js` owns the Web Speech API lifecycle; React components subscribe to its transcript, error, and status events and do not create recognition objects themselves. The service feature-detects `SpeechRecognition` and Chrome's `webkitSpeechRecognition`, holds one recognizer per widget instance, configures one utterance with interim results, and never restarts it automatically. Start is called directly from the user's Listen click so the browser can present its microphone permission prompt. Stop/abort is called from Stop, panel deactivation, and component cleanup.
+
+The default language is `en-IN`; `en-US` and `hi-IN` are selectable. Hinglish can be tried using either an English locale or `hi-IN`, but recognition quality is determined by Chrome's service and is not guaranteed. Interim and final text updates the transcript. A final result moves the UI to processing; explicit stop returns it to idle, and errors are mapped to user-readable messages. Errors do not trigger retries.
+
+Web Speech recognition is invoked in the visible UI context (the extension new-tab page or the website content script's isolated world). It is not run in the MV3 service worker. An offscreen document was not selected: it adds lifecycle and messaging complexity and its SpeechRecognition behavior has not been validated. Content-script and extension-page speech behavior can vary by Chrome version and permission context, so each needs manual Chrome validation. See [MDN's SpeechRecognition documentation](https://developer.mozilla.org/en-US/docs/Web/API/SpeechRecognition) for browser support and Web Speech API limitations.
+
+This implementation does not call `getUserMedia`, retain a `MediaStream`, save audio, or send audio to an Eera backend. Chrome's Web Speech implementation may use an online recognition service, so recognition may require a network connection and follows Chrome's speech-service/privacy behavior. Microphone authorization is requested by the browser API when the user explicitly starts listening; no separate microphone permission is declared in the extension manifest. Chrome may apply origin-specific site permission behavior to website content-script contexts; users can deny, revoke, or stop access through Chrome. Closing the Eera panel aborts recognition.
+
+The current proof of concept found the SpeechRecognition constructor in the development browser, but its recognition attempt returned a network error. Actual microphone permissions and spoken English/Hindi/Hinglish transcripts therefore still require manual testing in the installed Chrome extension.
+
 ## Extension communication
 
-There is no message protocol because the current widget only toggles its own panel using local React state. Future communication between the React page, background worker, and content scripts should use Chrome extension messaging, with validated message types and explicit responses/errors. The background worker should coordinate short-lived browser operations rather than act as a continuously running assistant process.
+There is no message protocol for speech because recognition and UI state currently live in the same React context. Future communication between the React page, background worker, and content scripts should use Chrome extension messaging, with validated message types and explicit responses/errors. The background worker should coordinate short-lived browser operations rather than act as a continuously running assistant process.
 
-## Planned speech architecture
-
-Speech recognition and speech synthesis are future features. Recognition should remain independent of command parsing/execution, and speech synthesis should be a separate service. Microphone access and browser support must be tested in the intended extension contexts before choosing an implementation.
-
-An offscreen document is **not** selected for continuous speech recognition. Its feasibility, lifecycle behavior, permissions, and supported APIs must be tested in Chrome before deciding whether it belongs in the architecture.
+Speech synthesis remains a future, separate service and must not be coupled to recognition or command parsing.
 
 ## Planned command architecture
 
