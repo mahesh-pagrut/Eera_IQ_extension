@@ -2,7 +2,7 @@
 
 Eera is a personal AI browser assistant being developed as a Chrome extension. The long-term goal is a friendly, conversational assistant that can help with browser tasks using voice and text.
 
-This repository currently contains **Milestone 1: Project initialization and architecture**. The new-tab page is a small React placeholder; no assistant actions are implemented yet.
+The project has completed **Milestone 1: Project initialization and architecture** and **Milestone 2: Floating assistant UI**. Eera now displays the same floating assistant widget on its custom new-tab page and on normal HTTP/HTTPS webpages.
 
 ## Technology
 
@@ -47,6 +47,8 @@ npm run build
 
 Vite explicitly bundles the new-tab page and the MV3 background service worker. It also copies `public/manifest.json` and the referenced icon images to the output directory.
 
+The build then runs a second Vite configuration to produce `dist/content/contentScript.js` as a self-contained classic script. The widget stylesheet is embedded in that bundle and applied inside its Shadow DOM.
+
 ## Load in Chrome
 
 1. Run `npm run build`.
@@ -54,15 +56,22 @@ Vite explicitly bundles the new-tab page and the MV3 background service worker. 
 3. Turn on **Developer mode**.
 4. Choose **Load unpacked**.
 5. Select this project's `dist` directory.
-6. Open a new tab to view Eera's placeholder page.
+6. Open a new tab to see the floating Eera orb. Click it to open or close the assistant panel.
 
 After rebuilding, use **Reload** on the extension card in `chrome://extensions` to load updated output.
 
+## Floating assistant
+
+The widget contains Eera's gradient orb, a greeting and readiness status, a voice-coming-soon note, and a placeholder transcript. The new-tab page and website content script reuse the same React components.
+
+On normal webpages, the content script creates a small extension-owned mount point and renders the widget inside an open Shadow DOM. Component styles are embedded into the content-script bundle, which keeps the page's styles from changing Eera and Eera's styles from leaking into the page. The script does not read page content, collect browsing information, or automate the page.
+
+The manifest declares `http://*/*` and `https://*/*` host access and matching content-script patterns so Chrome can inject Eera on normal websites. These broad host patterns are required for an everywhere-on-the-web floating UI; they grant the ability to inject the extension UI, not a feature that reads website contents. Chrome may display a site-access prompt, and users can restrict the extension's site access in Chrome.
+
 ## Current features and limitations
 
-- Replaces Chrome's new-tab page with a simple React placeholder.
-- Includes the minimum MV3 background service-worker entry and extension icons.
-- Requests no Chrome permissions.
-- Does not yet include content scripts, voice input/output, microphone access, AI integration, command handling, or browser automation.
-- Chrome behavior has not been runtime-tested as part of this milestone. See [DEVELOPMENT.md](./DEVELOPMENT.md) for the next milestone's testing requirements.
-
+- Replaces Chrome's new-tab page with the floating Eera assistant.
+- Injects the same widget on normal HTTP and HTTPS pages using a Shadow DOM content script.
+- Orb interaction only opens and closes a static information panel; the transcript is placeholder text.
+- No microphone access, speech recognition/synthesis, AI, command handling, or browser automation is implemented.
+- Chrome website injection has not been manually verified as part of this implementation. See [DEVELOPMENT.md](./DEVELOPMENT.md) for the manual smoke test.
