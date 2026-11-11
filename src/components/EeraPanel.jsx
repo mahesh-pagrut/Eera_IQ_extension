@@ -1,7 +1,7 @@
 import AssistantStatus from './AssistantStatus.jsx';
 import Transcript from './Transcript.jsx';
 
-function EeraPanel({ isOpen }) {
+function EeraPanel({ assistantState, isOpen }) {
   return (
     <section
       id="eera-assistant-panel"
@@ -15,7 +15,7 @@ function EeraPanel({ isOpen }) {
         </div>
         <div>
           <h2 className="eera-panel__name">Eera</h2>
-          <AssistantStatus />
+          <AssistantStatus assistantState={assistantState} />
         </div>
       </div>
       <p className="eera-panel__greeting">
