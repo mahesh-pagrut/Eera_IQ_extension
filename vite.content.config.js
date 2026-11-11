@@ -15,7 +15,7 @@ export default defineConfig({
     emptyOutDir: false,
     cssCodeSplit: false,
     rollupOptions: {
-      input: fileURLToPath(new URL('src/content/contentScript.js', projectRoot)),
+      input: fileURLToPath(new URL('src/content/contentScript.jsx', projectRoot)),
       output: {
         format: 'iife',
         inlineDynamicImports: true,
