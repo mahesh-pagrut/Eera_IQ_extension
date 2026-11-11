@@ -18,6 +18,12 @@ Vite's Rollup inputs and output names are configured explicitly in `vite.config.
 
 `src/components/eera-widget.css` defines the orb and panel styles and is included in the new-tab stylesheet. The content script imports the same CSS with Vite's `?inline` query, adds the resulting CSS text to a `<style>` element in its Shadow DOM, and mounts the shared React component tree there. This ensures styles are available in the shadow root rather than relying on Vite's normal page CSS injection.
 
+## Orb state and animation
+
+`assistantStates.js` defines the shared `idle`, `listening`, `processing`, `speaking`, and `error` state identifiers and their display labels. `EeraWidget` owns the current state and passes it to `EeraOrb` and the panel status. `EeraOrb` renders a state class and accessible state label; `orb-animations.css` maps those classes to lightweight CSS keyframes. Its animation behavior is presentation-only and does not start speech or browser operations. Later voice/business logic can drive the widget state through props without moving that logic into the orb.
+
+The animation stylesheet is imported by the shared widget stylesheet, so Vite includes the same keyframes in the new-tab CSS and embeds them in the content-script bundle for Shadow DOM use. The reduced-motion media query disables the keyframes while leaving each state visually distinguishable. `AssistantStatePreview` is rendered only when `import.meta.env.DEV` is true, allowing developers to inspect each state in the Vite page without shipping state-selection controls in production.
+
 ## Manifest V3 responsibilities
 
 The manifest declares a background service worker, new-tab override, static extension icons, and an HTTP/HTTPS content script. Its `host_permissions` and content-script `matches` use `http://*/*` and `https://*/*`, which allow Chrome to inject the UI on normal websites. This is intentionally broad site access because the milestone asks the widget to appear across normal webpages. It is used only for injection: this milestone does not read page content or collect browsing information. No unrelated Chrome API permissions are requested.
