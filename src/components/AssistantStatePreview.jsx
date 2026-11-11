@@ -11,9 +11,12 @@ function AssistantStatePreview({ assistantState, onStateChange }) {
       <span>Animation preview</span>
       <select
         aria-label="Preview orb animation state"
-        value={assistantState}
-        onChange={(event) => onStateChange(event.target.value)}
+        value={assistantState ?? 'auto'}
+        onChange={(event) =>
+          onStateChange(event.target.value === 'auto' ? null : event.target.value)
+        }
       >
+        <option value="auto">Auto (recognition)</option>
         {states.map((state) => (
           <option key={state} value={state}>
             {ASSISTANT_STATE_LABELS[state]}
