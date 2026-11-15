@@ -1,6 +1,6 @@
 # Development Milestones
 
-Status values: **Complete**, **Not started**.
+Status values: **Complete**, **Partial**, **Not started**.
 
 ## Milestone 1: Project initialization and architecture
 
@@ -37,17 +37,32 @@ Status values: **Complete**, **Not started**.
 - **Architecture decision:** Use feature-detected Web Speech API recognition in the visible UI context, started directly by the Listen click. Do not use the MV3 worker or an offscreen document. Use one utterance per explicit start and no automatic restart. The browser requests microphone access at runtime; no manifest microphone permission is declared.
 - **Files affected:** `src/services/speechRecognition.js`, `src/components/EeraWidget.jsx`, `src/components/EeraPanel.jsx`, `src/components/Transcript.jsx`, `src/components/AssistantStatus.jsx`, `src/components/eera-widget.css`, `README.md`, `ARCHITECTURE.md`, `DEVELOPMENT.md`.
 - **Features implemented:** Listen/Stop control; default `en-IN` and selectable `en-US`/`hi-IN`; interim/final transcript updates; actual recognition status drives idle/listening/processing/error orb states; close-panel stop/abort; readable handling for permission denial, unavailable API, missing microphone, no speech, network/service errors, and unexpected termination; retry after errors.
-- **Testing completed:** `npm run build` passed for new-tab and content-script bundles. A fake SpeechRecognition browser harness exercised interim/final text, language configuration, stop, retry after permission error, processing/listening/idle/error states, and stop-on-panel-close. Service-level tests verified duplicate-start prevention, single recognizer creation, teardown, unavailable API handling, and permission-denied messaging. A real Web Speech start was attempted in the available Chrome-based development browser; the API was present but returned `network`, so no real spoken transcript or language accuracy was verified.
-- **Testing still required in installed Chrome:** Allow and deny microphone permission on the new-tab and website contexts; speak English, Hindi, and mixed Hindi-English; test an unavailable microphone/API; verify recognition stops via Stop, panel close, navigation, and extension reload.
+- **Testing completed:** `npm run build` passed for new-tab and content-script bundles. A fake SpeechRecognition browser harness exercised interim/final text, language configuration, stop, retry after permission error, processing/listening/idle/error states, and stop-on-panel-close. Service-level tests verified duplicate-start prevention, single recognizer creation, teardown, unavailable API handling, and permission-denied messaging. An earlier development-browser attempt returned `network`; after reloading the current extension build, the user confirmed English voice recognition and command flow on both extension surfaces.
+- **Testing still required in installed Chrome:** Allow/deny microphone permission, Hindi and mixed Hindi-English recognition, unavailable microphone/API, and stop behavior across panel close/navigation/reload.
 - **Known issues:** Chrome may use an online speech-recognition service; internet access and service availability are outside Eera's control. SpeechRecognition availability and microphone permission behavior vary by browser/context. Hinglish accuracy is not guaranteed. There is no speech synthesis, wake word, or command processing.
 
 ## Milestone 5: Speech synthesis and voice configuration
 
 - **Objective:** Add spoken responses and configurable voice behavior.
-- **Implementation status:** Not started.
-- **Files affected:** To be determined; expected work in speech synthesis service, UI, and configuration data.
-- **Testing requirements:** Test available voices, interruption/cancellation, language selection, and unsupported environments.
-- **Known issues:** Available voices vary by operating system and browser.
+- **Implementation status:** Complete (mocked service tests, simulated UI integration, production build, and unmocked browser synthesis events verified).
+- **Architecture decision:** Keep synthesis in a UI-independent service. Extension pages call `chrome.tts` directly; website content scripts route through the MV3 worker because they cannot call that API directly. The browser Web Speech service is a fallback if the worker bridge disconnects, and remains the Vite-only preview implementation. The worker handles short requests/events only and does not run microphone work.
+- **Files affected:** `package.json`, `public/manifest.json`, `src/services/speechSynthesis.js`, `src/services/speechSynthesis.test.js`, `src/services/speechRecognition.js`, `src/background/serviceWorker.js`, `src/components/EeraWidget.jsx`, `src/components/EeraPanel.jsx`, `src/components/Transcript.jsx`, `src/components/SpeechSynthesisPreview.jsx`, `src/components/eera-widget.css`, `README.md`, `ARCHITECTURE.md`, `DEVELOPMENT.md`.
+- **Features implemented:** Reusable speak/stop service with support detection, asynchronous voice loading, automatic or explicit voice choice, configurable `en-IN`/`en-US`/`hi-IN`, rate/pitch/volume validation, status/error events, cancellation of prior output, and disposal. Dev-only controls test text, voice, language, rate, pitch, and volume. Widget stops and awaits recognition shutdown before output and does not resume listening afterward.
+- **Testing completed:** Existing service unit tests cover voice retrieval, language/female/default fallback, configuration, cancellation, status/error events, and cleanup. The Vite browser test confirmed unmocked Web Speech synthesis lifecycle events, but it did not confirm audible output in the installed extension.
+- **Testing completed:** After reloading the latest unpacked build, the user confirmed audible English replies from both the new-tab and website contexts.
+- **Testing still required:** Stop/cancel during active speech and other language voices. Browser/OS voice lists may differ between contexts.
+- **Known issues:** Female-sounding selection is heuristic because voice names/gender metadata are not standardized; a female voice is not guaranteed. Installed-Chrome extension-context audio output is not yet verified.
+
+## Voice response pipeline repair (between Milestones 5 and 6)
+
+- **Objective:** Fix the gap where final recognition transcripts were displayed but never handled, and route production speech through Chrome's extension TTS API.
+- **Implementation status:** Implemented; automated checks pass. User-confirmed audible replies and “open YouTube” commands work on both extension surfaces after reloading the latest `dist` build.
+- **Architecture decision:** The widget forwards each distinct final transcript through a small parser and executor. The worker accepts only fixed actions (`new-tab`, `open-youtube`, `google-search`) and creates fixed HTTPS destinations. Local greeting/time/unsupported replies do not require browser APIs. Extension pages call `chrome.tts` directly; website content scripts use a named runtime port to the worker and fall back to browser synthesis if the worker disconnects. The worker does not perform microphone capture. No arbitrary JavaScript or URL execution is permitted.
+- **Files affected:** `public/manifest.json`, `package.json`, `src/background/serviceWorker.js`, `src/components/EeraWidget.jsx`, `src/components/EeraPanel.jsx`, `src/components/Transcript.jsx`, `src/components/eera-widget.css`, `src/services/speechRecognition.js`, `src/services/speechSynthesis.js`, `src/services/commandParser.js`, `src/services/commandExecutor.js`, `src/services/commandPipeline.test.js`, `src/services/speechRecognition.test.js`, `src/services/speechSynthesis.test.js`, `README.md`, `ARCHITECTURE.md`, `DEVELOPMENT.md`.
+- **Automated testing:** Added command parsing/execution tests, recognition final-result/stop lifecycle tests, Chrome TTS direct/bridge/fallback tests, and an extension-page tab-action fallback test. `npm test` passes 21 tests.
+- **Manual testing completed:** User tested the latest unpacked build on the new-tab page and a website: spoken replies were audible on both; “open YouTube” opened a tab from both.
+- **Manual testing still needed:** Verify local time, Google search, new-tab, unsupported requests, Hindi/Hinglish, recognition denial, and speech stop/cancel behavior.
+- **Known limitations:** This is a deliberately small deterministic command set, not Milestone 6's personality/conversation engine. Hinglish parsing and recognition are limited. Manual Chrome validation is user-reported rather than independently observed in this session.
 
 ## Milestone 6: Personality and conversational response engine
 
@@ -68,10 +83,10 @@ Status values: **Complete**, **Not started**.
 ## Milestone 8: Command parser and command dispatcher
 
 - **Objective:** Parse user input into explicit intents and route intents through a centralized dispatcher.
-- **Implementation status:** Not started.
+- **Implementation status:** Partial foundation exists in `commandParser.js` and `commandExecutor.js`; the full milestone remains pending.
 - **Files affected:** To be determined; expected work in parser, dispatcher, command contracts, and tests.
 - **Testing requirements:** Test supported utterances, ambiguous input, unknown commands, and error propagation.
-- **Known issues:** No command execution is part of earlier milestones.
+- **Known issues:** Only a small fixed command set is implemented; modular command modules and broader validation/testing remain future work.
 
 ## Milestone 9: YouTube search and playback
 
