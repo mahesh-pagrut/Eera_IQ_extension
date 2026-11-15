@@ -49,6 +49,8 @@ export function createSpeechRecognitionService({
   let disposed = false;
   let hasFinalResult = false;
   let lastTranscript = '';
+  let stopPromise = null;
+  let resolveStop = null;
   const transcriptListeners = new Set();
   const errorListeners = new Set();
   const statusListeners = new Set();
@@ -87,6 +89,9 @@ export function createSpeechRecognitionService({
     const finalParts = [];
     const interimParts = [];
     let resultIsFinal = false;
+    const firstChangedResult = Number.isInteger(event.resultIndex)
+      ? event.resultIndex
+      : 0;
 
     for (let index = 0; index < event.results.length; index += 1) {
       const result = event.results[index];
@@ -95,7 +100,7 @@ export function createSpeechRecognitionService({
 
       if (result.isFinal) {
         finalParts.push(text);
-        resultIsFinal = true;
+        if (index >= firstChangedResult) resultIsFinal = true;
       } else {
         interimParts.push(text);
       }
@@ -103,12 +108,11 @@ export function createSpeechRecognitionService({
 
     if (resultIsFinal) hasFinalResult = true;
     lastTranscript = [...finalParts, ...interimParts].join(' ').trim();
+    if (resultIsFinal) setStatus('processing');
     emit(transcriptListeners, {
       text: lastTranscript,
       isFinal: resultIsFinal,
     });
-
-    if (resultIsFinal) setStatus('processing');
   }
 
   function createRecognition() {
@@ -156,6 +160,9 @@ export function createSpeechRecognitionService({
       if (stopRequested) {
         stopRequested = false;
         setStatus('idle');
+        resolveStop?.();
+        resolveStop = null;
+        stopPromise = null;
         return;
       }
       if (status === 'error' || status === 'processing') return;
@@ -195,20 +202,42 @@ export function createSpeechRecognitionService({
   }
 
   function stopListening() {
-    if (!recognition || !['starting', 'listening'].includes(status)) return;
+    if (status === 'stopping') return stopPromise ?? Promise.resolve();
+    if (
+      !recognition ||
+      !['starting', 'listening', 'processing'].includes(status)
+    ) {
+      return Promise.resolve();
+    }
 
     stopRequested = true;
+    const hasCompletedFinalResult = status === 'processing' && hasFinalResult;
     setStatus('stopping');
+    stopPromise = new Promise((resolve) => {
+      resolveStop = resolve;
+    });
     try {
-      recognition.abort();
+      if (hasCompletedFinalResult) {
+        recognition.stop();
+      } else {
+        recognition.abort();
+      }
     } catch (error) {
       if (error.name !== 'InvalidStateError') {
         reportError(createRecognitionError(error));
-        return;
+        stopRequested = false;
+        resolveStop?.();
+        resolveStop = null;
+        stopPromise = null;
+        return Promise.resolve();
       }
       stopRequested = false;
       setStatus('idle');
+      resolveStop?.();
+      resolveStop = null;
+      stopPromise = null;
     }
+    return stopPromise ?? Promise.resolve();
   }
 
   function setLanguage(nextLanguage) {
@@ -235,6 +264,9 @@ export function createSpeechRecognitionService({
   function dispose() {
     if (disposed) return;
     stopListening();
+    resolveStop?.();
+    resolveStop = null;
+    stopPromise = null;
     disposed = true;
     if (recognition) {
       recognition.onstart = null;
