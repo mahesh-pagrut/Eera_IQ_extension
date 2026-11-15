@@ -121,6 +121,8 @@
   bottom: 82px;
   left: 0;
   width: min(340px, calc(100vw - 48px));
+  max-height: min(680px, calc(100vh - 120px));
+  overflow-y: auto;
   padding: 20px;
   border: 1px solid rgb(255 255 255 / 82%);
   border-radius: 22px;
@@ -131,6 +133,7 @@
     inset 0 1px rgb(255 255 255 / 90%);
   color: #28243d;
   pointer-events: auto;
+  overscroll-behavior: contain;
   backdrop-filter: blur(18px);
   -webkit-backdrop-filter: blur(18px);
 }
@@ -275,10 +278,109 @@
   line-height: 1.4;
 }
 
+.eera-transcript__response {
+  margin-top: 10px;
+  padding-top: 9px;
+  border-top: 1px solid rgb(123 101 175 / 12%);
+}
+
 .eera-transcript__error {
   padding-top: 8px;
   border-top: 1px solid rgb(221 120 91 / 17%);
   color: #a5503b !important;
+}
+
+.eera-speech-preview {
+  display: grid;
+  gap: 9px;
+  margin-top: 14px;
+  padding: 11px;
+  border: 1px dashed rgb(123 101 175 / 25%);
+  border-radius: 14px;
+  background: rgb(249 247 253 / 78%);
+}
+
+.eera-dev-field {
+  display: grid;
+  gap: 4px;
+  color: #777386;
+  font-size: 10px;
+}
+
+.eera-dev-field select,
+.eera-dev-field textarea {
+  width: 100%;
+  min-width: 0;
+  padding: 6px 8px;
+  border: 1px solid rgb(123 101 175 / 14%);
+  border-radius: 8px;
+  background: rgb(255 255 255 / 90%);
+  color: #38354a;
+  font: inherit;
+  font-size: 11px;
+}
+
+.eera-dev-field textarea {
+  resize: vertical;
+}
+
+.eera-dev-field select:focus-visible,
+.eera-dev-field textarea:focus-visible,
+.eera-dev-range input:focus-visible,
+.eera-stop-speech-button:focus-visible {
+  outline: 2px solid #6c4ee8;
+  outline-offset: 2px;
+}
+
+.eera-dev-range {
+  display: grid;
+  grid-template-columns: 72px 1fr;
+  align-items: center;
+  gap: 8px;
+  color: #777386;
+  font-size: 10px;
+}
+
+.eera-dev-range input {
+  width: 100%;
+  accent-color: #8c70e8;
+}
+
+.eera-speech-preview__actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 7px;
+}
+
+.eera-speech-preview__actions .eera-listen-button {
+  min-height: 31px;
+  margin: 0;
+  padding: 6px;
+  font-size: 11px;
+}
+
+.eera-stop-speech-button {
+  min-height: 31px;
+  padding: 6px;
+  border: 1px solid rgb(123 101 175 / 14%);
+  border-radius: 11px;
+  background: rgb(255 255 255 / 75%);
+  color: #6b687b;
+  cursor: pointer;
+  font: inherit;
+  font-size: 11px;
+}
+
+.eera-stop-speech-button:disabled {
+  cursor: default;
+  opacity: 0.55;
+}
+
+.eera-speech-preview__status {
+  margin: 0;
+  color: #898598;
+  font-size: 10px;
+  line-height: 1.4;
 }
 
 @media (max-width: 380px) {
