@@ -15,11 +15,14 @@ function EeraPanel({
   assistantState,
   errorMessage,
   isListening,
+  isSpeaking,
+  devSpeechControls,
   isOpen,
   language = DEFAULT_RECOGNITION_LANGUAGE,
   onLanguageChange,
   onToggleListening,
   recognitionStatus,
+  response,
   transcript,
 }) {
   return (
@@ -47,7 +50,8 @@ function EeraPanel({
       </p>
       <p className="eera-panel__voice-note">
         Microphone starts only when you choose Listen. Chrome may use an online
-        speech service; Eera does not save audio.
+        speech service; Eera does not save audio. Speech output uses browser
+        voices.
       </p>
       <label className="eera-language">
         <span>Recognition language</span>
@@ -56,6 +60,7 @@ function EeraPanel({
           onChange={(event) => onLanguageChange(event.target.value)}
           disabled={
             isListening ||
+            isSpeaking ||
             recognitionStatus === 'starting' ||
             recognitionStatus === 'stopping'
           }
@@ -77,7 +82,12 @@ function EeraPanel({
       >
         {isListening ? 'Stop listening' : 'Listen'}
       </button>
-      <Transcript errorMessage={errorMessage} transcript={transcript} />
+      <Transcript
+        errorMessage={errorMessage}
+        response={response}
+        transcript={transcript}
+      />
+      {devSpeechControls}
     </section>
   );
 }
