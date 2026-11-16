@@ -2,7 +2,7 @@
 
 Eera is a personal AI browser assistant being developed as a Chrome extension. The long-term goal is a friendly, conversational assistant that can help with browser tasks using voice and text.
 
-The project has completed **Milestones 1–5**: project foundation, floating assistant UI, orb animations, explicit microphone/speech recognition input, and speech synthesis. The current voice flow also connects final transcripts to a small, deterministic set of local responses and browser actions. Eera displays the same floating assistant widget on its custom new-tab page and on normal HTTP/HTTPS webpages.
+The project has completed **Milestones 1–6**: project foundation, floating assistant UI, orb animations, speech recognition/synthesis, a local voice-response pipeline, and a modular personality/conversation engine. Eera displays the same floating assistant widget on its custom new-tab page and on normal HTTP/HTTPS webpages.
 
 ## Technology
 
@@ -93,22 +93,30 @@ Eera does not record or save audio and does not upload it to an Eera server. Chr
 
 ## Voice responses and supported commands
 
-After a final transcript, Eera stops the recognition session, parses the utterance into a supported local intent, shows the response, and speaks it. There is no AI service, backend, or arbitrary page-script execution. Current commands are intentionally limited:
+After a final transcript, Eera stops recognition and routes the message. Explicit browser commands go through the existing parser/executor. Greetings and other conversational messages go through the local personality engine; the response is displayed and spoken with a language-appropriate voice. No AI service, backend, or arbitrary page-script execution is used. Current browser commands are intentionally limited:
 
-- Greetings (for example, “hello” or “namaste”).
 - Ask for the current time; it uses the device's local clock.
 - Open YouTube in a new tab.
 - Search Google (for example, “search Google for cats”).
 - Open a new tab.
-- Unsupported requests receive a clear response describing the available commands.
 
-The parser recognizes a small English/Hindi/Hinglish phrase set. It is not a general language understanding system; speech recognition accuracy still depends on Chrome. Browser actions use fixed HTTPS destinations and a validated extension message; the new-tab extension page has a direct tab-API fallback if the worker has no receiver. Content scripts still require the worker for browser actions and use a speech fallback if the worker bridge disconnects. The command response is informational; no YouTube playback or arbitrary website interaction is implemented.
+The parser recognizes a small English/Hindi/Hinglish phrase set. The conversation engine also handles greetings, introductions, questions about Eera and her capabilities, thanks, farewells, apologies, mood questions, and simple follow-ups. Unknown questions receive a friendly clarification rather than triggering a browser action. This remains a rule-based local assistant, not a general language model; speech recognition accuracy still depends on Chrome. Browser actions use fixed HTTPS destinations and validated extension messages. The command response is informational; no YouTube playback or arbitrary website interaction is implemented.
+
+## Personality and conversation
+
+The identity, configurable creator name, default language, capabilities, personality traits, greeting styles, and tone live in `src/data/personality/eeraIdentity.js`. Update the `creator.name` value there when the project's creator should be named; when it is blank, Eera says that creator information has not been configured rather than guessing.
+
+Responses and their English, Hindi, and Hinglish variations are kept in `personalityResponses.js`. The local language detector uses Devanagari script, several Romanized Hindi markers, recognized Hinglish phrases, and the selected recognition language as a fallback; a single borrowed Hindi word does not automatically make a message Hindi. Hindi and Hinglish replies are sent to speech synthesis with `hi-IN`; English uses the selected English locale.
+
+Conversation context is held in memory only for the lifetime of the widget. It keeps a bounded set of recent user/assistant turns to support brief follow-ups, including “tell me more” and “what did I ask?”. Use **Clear conversation** in the panel to discard that context and clear the visible turn. No personal memory is written to storage or a database.
 
 In the production extension, `src/services/speechSynthesis.js` uses `chrome.tts` (the manifest's `tts` permission) directly on Eera's new-tab page. On websites, it routes speech requests to the MV3 service worker over a named extension port because content scripts cannot call `chrome.tts` directly. If that bridge disconnects, the service falls back to browser Web Speech synthesis and reports an error if that also fails. Chrome uses platform/installed voices (SAPI 5 on Windows); voice names and language coverage vary, and a female-sounding voice is not guaranteed. Defaults are `en-IN`, rate `1.0`, pitch `1.05`, and volume `1.0`. There is no Eera speech server or paid API. The Vite-only speech preview still uses the browser Web Speech API and does not exercise the production extension bridge.
 
 Speech output stops active recognition before beginning and does not automatically resume listening. Closing the panel stops recognition and speech. Microphone capture begins only after the user presses **Listen**; Chrome may send recognition audio to its own online speech service. Eera does not record or save audio.
 
 For development testing only, run `npm run dev` and use the **Speech test** controls to enter text, select a development-browser voice, adjust language/rate/pitch/volume, speak, or stop. These controls are removed from production builds. To test the actual production path, build and reload `dist/` in Chrome, then use Listen and speak a supported command. Playback must be confirmed by listening on the device; mocked service tests and playback events alone do not prove audible output.
+
+For Milestone 6 testing, try “Hello”, “Who are you?”, “Who created you?”, “What can you do?”, “Thanks”, “How are you?”, “Tell me more”, and “What did I ask?” in English, Hindi, and Hinglish. Verify the transcript, displayed answer, spoken language, and the **Clear conversation** action. Existing browser commands such as “Open YouTube” and “Search Google for cats” should still execute through the command pipeline.
 
 ## Supported recognition languages
 
@@ -125,7 +133,7 @@ For development testing only, run `npm run dev` and use the **Speech test** cont
 - Listening, processing, speaking, and error orb states follow the active voice pipeline.
 - The production voice response path uses Chrome's `chrome.tts` API; the development-only Speech test interface exercises browser speech synthesis instead.
 - Speech output supports `en-IN`, `en-US`, and `hi-IN`; voice availability and voice gender identification are platform-dependent.
-- Final recognition results currently support a small allowlisted command set (greeting, local time, YouTube tab, Google search tab, and new tab); general conversation, YouTube playback, and arbitrary navigation are not implemented.
+- Final recognition results support a small allowlisted browser-command set plus local personality responses. This is not a general AI system; YouTube playback and arbitrary navigation are not implemented.
 - Recognition depends on Chrome exposing the Web Speech API and its speech service; language quality and availability are not guaranteed. An earlier development-browser attempt returned a network error, but English recognition was subsequently confirmed by the user in installed Chrome.
-- After reloading the latest `dist` build, the user confirmed audible replies on both the new-tab page and website widget, and confirmed “open YouTube” works from both surfaces. Hindi/Hinglish recognition, other commands, and audio output on other devices remain unverified. No wake-word detection, AI conversation engine, or general browser automation is implemented.
+- After reloading the previous `dist` build, the user confirmed audible replies and “open YouTube” on both surfaces. Milestone 6's newly added conversational responses are covered by automated tests; Hindi/Hinglish live recognition and speech still need manual verification. No wake-word detection, external AI, or general browser automation is implemented.
 - Chrome website microphone permission behavior should be manually checked on both HTTP and HTTPS pages. See [DEVELOPMENT.md](./DEVELOPMENT.md) for the test record and remaining checks.
