@@ -56,7 +56,19 @@ The current proof of concept found the SpeechRecognition constructor in the deve
 
 Speech recognition remains in the visible UI context; website synthesis and browser actions cross into the MV3 worker through Chrome extension messaging. The browser-action message accepts only `new-tab`, `open-youtube`, and `google-search` with a bounded query. The worker constructs fixed HTTPS URLs and calls `chrome.tabs.create`; if the worker has no receiver, the extension new-tab page may use `chrome.tabs.create` directly. A website content script cannot use that direct fallback and reports the failure. No path evaluates user text as code or accepts arbitrary URLs.
 
-The UI shows the transcript and response separately. Recognition, command parsing/execution, and speech synthesis remain separate modules; the widget coordinates their lifecycle.
+The UI shows the transcript and response separately. Recognition, command parsing/execution, conversation handling, and speech synthesis remain separate modules; the widget coordinates their lifecycle. A **Clear conversation** action clears in-memory context and the displayed turn without writing anything to storage.
+
+## Personality and conversation
+
+`src/data/personality/eeraIdentity.js` is the central identity configuration: assistant name/description, optional creator name, default language, capabilities, personality traits, greeting styles, and response tone. Creator attribution is deliberately blank by default; Eera never invents a creator. `src/data/personality/personalityResponses.js` contains short varied responses per intent and language.
+
+`src/services/conversation/conversationEngine.js` recognizes conversational intent and selects a localized response. It handles greetings, introductions, questions about the assistant, creator/capabilities questions, thanks, farewells, apologies, mood questions, simple follow-ups, and a friendly unknown-intent clarification. Its response selector avoids consecutive duplicate variants for the same intent/language.
+
+`conversationContext.js` holds a bounded list of recent user/assistant turns in memory for the widget lifetime. Browser commands are recorded there too, so simple follow-ups can refer to the latest turn. Context can be cleared and is not persisted to Chrome Storage, a database, or a backend.
+
+`languageDetector.js` chooses English, Hindi, or Hinglish using Devanagari script, phrase-level Hinglish matches, and multiple Romanized Hindi markers. A single shared/borrowed Hindi word alone is not enough to classify a Roman-script message as Hindi. The selected recognition locale is only a fallback where text is ambiguous. Hindi and Hinglish responses use `hi-IN` for speech; English retains the selected English locale.
+
+`messageRouter.js` gives the existing command parser first opportunity to identify a recognized browser action or local time request. Those intents alone reach `commandExecutor.js`; greetings and all other conversation go to the personality engine. The personality engine cannot execute browser actions. The voice-response handler passes the response text and selected speech language to the existing widget-owned speech service.
 
 ## Speech synthesis and voice configuration
 
@@ -68,17 +80,17 @@ Automatic voice selection first looks for a voice in the requested language/loca
 
 The widget owns the service instance and maps speech events to the existing assistant state. While output starts/plays, the orb and panel status use `speaking`; completion returns to idle unless another state remains active; synthesis errors are displayed and use the error state. Final recognition text is parsed into explicit local intents, a response is displayed, and the same response is spoken. If speech is requested during recognition, the widget waits for recognition's stop/end event before invoking synthesis. Starting recognition while output is playing first cancels output. The panel close action stops both services. Listening is never automatically resumed after speech.
 
-The current parser intentionally supports only greetings, local device time, open YouTube, Google search, and new-tab requests (with a limited Hindi/Hinglish phrase set). It has a clear unsupported-command response and is not an AI or general conversation engine. The executor performs only allowlisted actions and no page scripting. These starter behaviors do not complete the later personality, YouTube playback, Google navigation, or general tab-management milestones.
+The current parser intentionally supports local device time, open YouTube, Google search, and new-tab requests (with a limited Hindi/Hinglish phrase set). Unknown/non-command input is routed to the personality engine rather than executing any browser action. The executor performs only allowlisted actions and no page scripting. These starter behaviors do not complete the later YouTube playback or general tab-management milestones.
 
-The development-only `SpeechSynthesisPreview` component supplies text, voice, language, rate, pitch, volume, Speak, and Stop controls. It is gated by `import.meta.env.DEV`; it is not included in production UI. Configuration is kept in memory in this milestone so future preference persistence can use Chrome Storage without coupling storage to the service.
+The development-only `SpeechSynthesisPreview` component supplies text, voice, language, rate, pitch, volume, Speak, and Stop controls. It is gated by `import.meta.env.DEV`; it is not included in production UI. Speech configuration remains in memory so future preference persistence can use Chrome Storage without coupling storage to the service.
 
-Speech synthesis in the production extension is routed through `chrome.tts` in the service worker; the API uses platform/installed voices, and voice availability varies. Speech text is sent only to the extension worker, not to an Eera server. The development fallback uses browser Web Speech synthesis. Actual audible playback still needs testing in the installed Chrome extension with audio output enabled.
+Speech synthesis in the production extension uses `chrome.tts` on extension pages and the service worker bridge for website content scripts; the API uses platform/installed voices, and voice availability varies. Speech text is not sent to an Eera server. The development fallback uses browser Web Speech synthesis. The user confirmed audible English replies from both extension surfaces on the previous build; Milestone 6 Hindi/Hinglish speech still needs manual testing.
 
 ## Planned command architecture
 
 Future command input should pass through separate stages: speech/text input, parsing into a typed intent, centralized dispatch, and a modular command implementation. Browser actions must use explicit Chrome APIs or narrowly scoped content-script operations; arbitrary AI-generated JavaScript must never be executed.
 
-Personality responses should remain data-driven and separate from command execution. Any AI integration is outside this milestone and must not introduce a paid service or backend without explicit product approval.
+Personality responses are data-driven and separate from command execution. This local milestone does not add AI integration, a paid service, or a backend.
 
 ## Chrome extension constraints
 
