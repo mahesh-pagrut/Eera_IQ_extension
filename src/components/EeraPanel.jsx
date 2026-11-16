@@ -17,9 +17,11 @@ function EeraPanel({
   isListening,
   isSpeaking,
   devSpeechControls,
+  identity,
   isOpen,
   language = DEFAULT_RECOGNITION_LANGUAGE,
   onLanguageChange,
+  onClearConversation,
   onToggleListening,
   recognitionStatus,
   response,
@@ -37,7 +39,7 @@ function EeraPanel({
           E
         </div>
         <div>
-          <h2 className="eera-panel__name">Eera</h2>
+          <h2 className="eera-panel__name">{identity.name}</h2>
           <AssistantStatus
             assistantState={assistantState}
             recognitionStatus={recognitionStatus}
@@ -45,12 +47,12 @@ function EeraPanel({
         </div>
       </div>
       <p className="eera-panel__greeting">
-        Hey! I&apos;m Eera. Your personal AI assistant. What can I help you with
-        today?
+        Hey! I&apos;m {identity.name}, {identity.description}. What can I help
+        you with today?
       </p>
       <p className="eera-panel__voice-note">
         Microphone starts only when you choose Listen. Chrome may use an online
-        speech service; Eera does not save audio. Speech output uses browser
+        speech service; {identity.name} does not save audio. Speech output uses browser
         voices.
       </p>
       <label className="eera-language">
@@ -84,6 +86,9 @@ function EeraPanel({
       </button>
       <Transcript
         errorMessage={errorMessage}
+        assistantName={identity.name}
+        hasConversation={Boolean(transcript || response)}
+        onClearConversation={onClearConversation}
         response={response}
         transcript={transcript}
       />
