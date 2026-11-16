@@ -51,7 +51,7 @@ Status values: **Complete**, **Partial**, **Not started**.
 - **Testing completed:** Existing service unit tests cover voice retrieval, language/female/default fallback, configuration, cancellation, status/error events, and cleanup. The Vite browser test confirmed unmocked Web Speech synthesis lifecycle events, but it did not confirm audible output in the installed extension.
 - **Testing completed:** After reloading the latest unpacked build, the user confirmed audible English replies from both the new-tab and website contexts.
 - **Testing still required:** Stop/cancel during active speech and other language voices. Browser/OS voice lists may differ between contexts.
-- **Known issues:** Female-sounding selection is heuristic because voice names/gender metadata are not standardized; a female voice is not guaranteed. Installed-Chrome extension-context audio output is not yet verified.
+- **Known issues:** Female-sounding selection is heuristic because voice names/gender metadata are not standardized; a female voice is not guaranteed. The user confirmed English audio on both surfaces after reloading the previous build; new Milestone 6 Hindi/Hinglish speech has not been manually verified.
 
 ## Voice response pipeline repair (between Milestones 5 and 6)
 
@@ -62,15 +62,19 @@ Status values: **Complete**, **Partial**, **Not started**.
 - **Automated testing:** Added command parsing/execution tests, recognition final-result/stop lifecycle tests, Chrome TTS direct/bridge/fallback tests, and an extension-page tab-action fallback test. `npm test` passes 21 tests.
 - **Manual testing completed:** User tested the latest unpacked build on the new-tab page and a website: spoken replies were audible on both; “open YouTube” opened a tab from both.
 - **Manual testing still needed:** Verify local time, Google search, new-tab, unsupported requests, Hindi/Hinglish, recognition denial, and speech stop/cancel behavior.
-- **Known limitations:** This is a deliberately small deterministic command set, not Milestone 6's personality/conversation engine. Hinglish parsing and recognition are limited. Manual Chrome validation is user-reported rather than independently observed in this session.
+- **Known limitations:** Browser commands remain a small deterministic allowlist. Hinglish parsing and recognition are limited. Manual Chrome validation is user-reported rather than independently observed in this session.
 
 ## Milestone 6: Personality and conversational response engine
 
 - **Objective:** Add extensible personality data and basic conversational response selection.
-- **Implementation status:** Not started.
-- **Files affected:** To be determined; expected work in `src/data/personality/` and response services.
-- **Testing requirements:** Verify response selection, fallback behavior, and separation from browser commands.
-- **Known issues:** No AI service or backend is included in the current foundation.
+- **Implementation status:** Complete (30 automated tests pass; production build and bundle checks pass).
+- **Architecture decision:** Keep identity and response text in data modules, conversation classification/context/language selection in the conversation service, and browser actions in the existing command parser/executor. Store only a bounded in-memory context per widget; never persist conversation content. Route selected language through the existing speech service.
+- **Files added:** `src/data/personality/eeraIdentity.js`, `src/data/personality/personalityResponses.js`, `src/services/conversation/conversationContext.js`, `src/services/conversation/conversationEngine.js`, `src/services/conversation/conversationEngine.test.js`, `src/services/conversation/languageDetector.js`, `src/services/conversation/messageRouter.js`, `src/services/conversation/responseSelector.js`.
+- **Files modified:** `src/components/EeraWidget.jsx`, `src/components/EeraPanel.jsx`, `src/components/EeraOrb.jsx`, `src/components/Transcript.jsx`, `src/components/eera-widget.css`, `README.md`, `ARCHITECTURE.md`, `DEVELOPMENT.md`.
+- **Features implemented:** Varied localized responses for greetings, introductions, questions about Eera/creator/capabilities, thanks, farewells, apologies, mood questions, short follow-ups, and unknown input. Configurable creator attribution; English/Hindi/Hinglish detection; bounded session context and **Clear conversation** action. Existing supported commands still route to the command executor, and all replies use the current synthesis path.
+- **Testing completed:** `npm test` passed 30 tests covering intents, response variation, identity/creator config, language selection, follow-up/context clearing, command-vs-conversation routing, speech-language handoff, recognition lifecycle, and TTS/command behavior. `npm run build` passed for new-tab, MV3 worker, and self-contained content script. Production asset/permission checks passed and development controls are absent.
+- **Manual testing still recommended:** Try new English, Hindi, and Hinglish conversation flows and the Clear conversation control in the reloaded extension. Hindi/Hinglish audio and live recognition have not been independently tested.
+- **Known limitations:** This is a deterministic offline response system, not an LLM or open-domain knowledge engine. Language detection and intent matching are heuristic; ambiguous text defaults to the selected language. Context is bounded, in-memory, and lost when the widget is unmounted or cleared.
 
 ## Milestone 7: Wake-word detection and conversation window
 
