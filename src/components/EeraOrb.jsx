@@ -3,7 +3,12 @@ import {
   ASSISTANT_STATES,
 } from './assistantStates.js';
 
-function EeraOrb({ assistantState = ASSISTANT_STATES.IDLE, isOpen, onClick }) {
+function EeraOrb({
+  assistantName = 'Eera',
+  assistantState = ASSISTANT_STATES.IDLE,
+  isOpen,
+  onClick,
+}) {
   const stateLabel = ASSISTANT_STATE_LABELS[assistantState];
   const accessibleState =
     assistantState === ASSISTANT_STATES.ERROR
@@ -15,7 +20,7 @@ function EeraOrb({ assistantState = ASSISTANT_STATES.IDLE, isOpen, onClick }) {
       type="button"
       className={`eera-orb eera-orb--${assistantState}`}
       data-state={assistantState}
-      aria-label={`Eera is ${accessibleState}. ${isOpen ? 'Close' : 'Open'} Eera assistant.`}
+      aria-label={`${assistantName} is ${accessibleState}. ${isOpen ? 'Close' : 'Open'} ${assistantName} assistant.`}
       aria-expanded={isOpen}
       aria-controls="eera-assistant-panel"
       onClick={onClick}
