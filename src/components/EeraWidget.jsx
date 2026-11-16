@@ -12,10 +12,26 @@ import {
   createSpeechSynthesisService,
   DEFAULT_SPEECH_CONFIGURATION,
 } from '../services/speechSynthesis.js';
-import { parseCommand } from '../services/commandParser.js';
-import { executeCommand } from '../services/commandExecutor.js';
+import { createConversationEngine } from '../services/conversation/conversationEngine.js';
+import {
+  createMessageRouter,
+  createVoiceResponseHandler,
+} from '../services/conversation/messageRouter.js';
+import { EERA_IDENTITY } from '../data/personality/eeraIdentity.js';
 
 function EeraWidget() {
+  const conversationRef = useRef(null);
+  if (!conversationRef.current) {
+    const engine = createConversationEngine();
+    const routeMessage = createMessageRouter({ conversationEngine: engine });
+    conversationRef.current = {
+      engine,
+      handleMessage: createVoiceResponseHandler({
+        routeMessage,
+        speak: (text, options) => speak(text, options),
+      }),
+    };
+  }
   const [isOpen, setIsOpen] = useState(false);
   const [recognitionStatus, setRecognitionStatus] = useState('idle');
   const [isProcessing, setIsProcessing] = useState(false);
@@ -131,23 +147,22 @@ function EeraWidget() {
         return;
       }
 
-      const command = parseCommand(text);
-      const result = await executeCommand(command, {
-        language: recognitionLanguageRef.current,
+      const { result, speechStarted } =
+        await conversationRef.current.handleMessage(text, {
+        preferredLanguage: recognitionLanguageRef.current,
       });
       if (generation !== interactionGenerationRef.current || !isOpenRef.current) {
         return;
       }
 
       setResponse(result.response);
-      const didStartSpeaking = await speak(result.response, {
-        language: recognitionLanguageRef.current,
-      });
-      if (!didStartSpeaking) setIsProcessing(false);
+      if (!speechStarted) setIsProcessing(false);
     } catch (error) {
       if (generation === interactionGenerationRef.current) {
         setIsProcessing(false);
-        setErrorMessage(error.message || 'Eera could not process that request.');
+        setErrorMessage(
+          error.message || `${EERA_IDENTITY.name} could not process that request.`,
+        );
       }
     }
   }
@@ -163,6 +178,18 @@ function EeraWidget() {
       isOpenRef.current = true;
     }
     setIsOpen(!isOpen);
+  }
+
+  function clearConversation() {
+    interactionGenerationRef.current += 1;
+    speechRecognitionRef.current?.stopListening();
+    speechSynthesisRef.current?.stopSpeaking();
+    conversationRef.current.engine.clear();
+    lastRespondedTranscriptRef.current = '';
+    setTranscript('');
+    setResponse('');
+    setErrorMessage('');
+    setIsProcessing(false);
   }
 
   function toggleListening() {
@@ -272,18 +299,21 @@ function EeraWidget() {
       <EeraPanel
         assistantState={assistantState}
         devSpeechControls={devSpeechControls}
+        identity={EERA_IDENTITY}
         errorMessage={errorMessage}
         isListening={isListening}
         isSpeaking={speaking}
         isOpen={isOpen}
         language={language}
         onLanguageChange={handleLanguageChange}
+        onClearConversation={clearConversation}
         onToggleListening={toggleListening}
         recognitionStatus={recognitionStatus}
         response={response}
         transcript={transcript}
       />
       <EeraOrb
+        assistantName={EERA_IDENTITY.name}
         assistantState={assistantState}
         isOpen={isOpen}
         onClick={togglePanel}
