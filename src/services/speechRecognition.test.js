@@ -97,3 +97,74 @@ test('explicit stop aborts active recognition and permission errors are readable
   assert.match(errors[0].message, /Microphone access was denied/);
   service.dispose();
 });
+
+test('continuous mode emits each new final result once and uses interim results', () => {
+  const service = createSpeechRecognitionService({
+    continuous: true,
+    getRecognition: () => MockRecognition,
+  });
+  const transcripts = [];
+  service.onTranscript((transcript) => transcripts.push(transcript));
+  service.startListening();
+  const recognition = MockRecognition.instance;
+  assert.equal(recognition.continuous, true);
+  assert.equal(recognition.interimResults, true);
+  recognition.onstart();
+  recognition.onresult({
+    resultIndex: 0,
+    results: [{ isFinal: true, 0: { transcript: 'Hey Eera' } }],
+  });
+  recognition.onresult({
+    resultIndex: 1,
+    results: [
+      { isFinal: true, 0: { transcript: 'Hey Eera' } },
+      { isFinal: false, 0: { transcript: 'open YouTube' } },
+    ],
+  });
+  recognition.onresult({
+    resultIndex: 1,
+    results: [
+      { isFinal: true, 0: { transcript: 'Hey Eera' } },
+      { isFinal: true, 0: { transcript: 'open YouTube' } },
+    ],
+  });
+
+  assert.deepEqual(transcripts, [
+    { text: 'Hey Eera', isFinal: true },
+    { text: 'open YouTube', isFinal: false },
+    { text: 'open YouTube', isFinal: true },
+  ]);
+  service.dispose();
+});
+
+test('continuous recognition reports an unexpected end even after a final result', () => {
+  const service = createSpeechRecognitionService({
+    continuous: true,
+    getRecognition: () => MockRecognition,
+  });
+  const errors = [];
+  service.onError((error) => errors.push(error));
+  service.startListening();
+  const recognition = MockRecognition.instance;
+  recognition.onstart();
+  recognition.onresult({
+    resultIndex: 0,
+    results: [{ isFinal: true, 0: { transcript: 'unrelated speech' } }],
+  });
+  recognition.onend();
+
+  assert.equal(errors.length, 1);
+  assert.match(errors[0].message, /disconnected unexpectedly/);
+  service.dispose();
+});
+
+test('unsupported recognition reports a terminal error code', () => {
+  const service = createSpeechRecognitionService({
+    getRecognition: () => null,
+  });
+  const errors = [];
+  service.onError((error) => errors.push(error));
+  assert.equal(service.startListening(), false);
+  assert.equal(errors[0].code, 'unsupported');
+  service.dispose();
+});
