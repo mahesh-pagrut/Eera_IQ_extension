@@ -41,6 +41,7 @@ function createRecognitionError(error) {
 
 export function createSpeechRecognitionService({
   language = DEFAULT_RECOGNITION_LANGUAGE,
+  continuous = false,
   getRecognition = getRecognitionConstructor,
 } = {}) {
   let recognition = null;
@@ -49,6 +50,7 @@ export function createSpeechRecognitionService({
   let disposed = false;
   let hasFinalResult = false;
   let lastTranscript = '';
+  let lastFinalResultIndex = -1;
   let stopPromise = null;
   let resolveStop = null;
   const transcriptListeners = new Set();
@@ -88,6 +90,7 @@ export function createSpeechRecognitionService({
 
     const finalParts = [];
     const interimParts = [];
+    const changedFinalParts = [];
     let resultIsFinal = false;
     const firstChangedResult = Number.isInteger(event.resultIndex)
       ? event.resultIndex
@@ -100,7 +103,14 @@ export function createSpeechRecognitionService({
 
       if (result.isFinal) {
         finalParts.push(text);
-        if (index >= firstChangedResult) resultIsFinal = true;
+        if (
+          index >= firstChangedResult &&
+          (!continuous || index > lastFinalResultIndex)
+        ) {
+          resultIsFinal = true;
+          changedFinalParts.push(text);
+          lastFinalResultIndex = Math.max(lastFinalResultIndex, index);
+        }
       } else {
         interimParts.push(text);
       }
@@ -110,7 +120,11 @@ export function createSpeechRecognitionService({
     lastTranscript = [...finalParts, ...interimParts].join(' ').trim();
     if (resultIsFinal) setStatus('processing');
     emit(transcriptListeners, {
-      text: lastTranscript,
+      text: continuous
+        ? resultIsFinal
+          ? changedFinalParts.join(' ').trim()
+          : interimParts.join(' ').trim()
+        : lastTranscript,
       isFinal: resultIsFinal,
     });
   }
@@ -124,11 +138,11 @@ export function createSpeechRecognitionService({
       return null;
     }
     if (!Recognition) {
-      reportError(
-        new Error(
-          'Speech recognition is unavailable in this browser context. Try the Eera new-tab page in Chrome.',
-        ),
+      const error = new Error(
+        'Speech recognition is unavailable in this browser context. Try the Eera new-tab page in Chrome.',
       );
+      error.code = 'unsupported';
+      reportError(error);
       return null;
     }
 
@@ -140,7 +154,7 @@ export function createSpeechRecognitionService({
       return null;
     }
     instance.lang = language;
-    instance.continuous = false;
+    instance.continuous = continuous;
     instance.interimResults = true;
     instance.maxAlternatives = 1;
     instance.onstart = () => {
@@ -165,14 +179,21 @@ export function createSpeechRecognitionService({
         stopPromise = null;
         return;
       }
-      if (status === 'error' || status === 'processing') return;
-      if (hasFinalResult) {
+      if (
+        status === 'error' ||
+        (status === 'processing' && !continuous)
+      ) {
+        return;
+      }
+      if (hasFinalResult && !continuous) {
         setStatus('processing');
         return;
       }
       reportError(
         new Error(
-          'Speech recognition ended before a final transcript was received. Tap Listen to try again.',
+          continuous
+            ? 'Continuous speech recognition disconnected unexpectedly. Eera will try to reconnect.'
+            : 'Speech recognition ended before a final transcript was received. Tap Listen to try again.',
         ),
       );
     };
@@ -189,6 +210,7 @@ export function createSpeechRecognitionService({
     stopRequested = false;
     hasFinalResult = false;
     lastTranscript = '';
+    lastFinalResultIndex = -1;
     instance.lang = language;
     setStatus('starting');
 
