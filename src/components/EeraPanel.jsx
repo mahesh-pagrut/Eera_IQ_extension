@@ -14,16 +14,18 @@ const LANGUAGE_LABELS = Object.freeze({
 function EeraPanel({
   assistantState,
   errorMessage,
-  isListening,
   isSpeaking,
+  isSessionActive,
   devSpeechControls,
   identity,
   isOpen,
   language = DEFAULT_RECOGNITION_LANGUAGE,
+  followUpSeconds = 12,
   onLanguageChange,
   onClearConversation,
-  onToggleListening,
+  onDeactivateAssistant,
   recognitionStatus,
+  sessionState,
   response,
   transcript,
 }) {
@@ -43,6 +45,8 @@ function EeraPanel({
           <AssistantStatus
             assistantState={assistantState}
             recognitionStatus={recognitionStatus}
+            sessionState={sessionState}
+            followUpSeconds={followUpSeconds}
           />
         </div>
       </div>
@@ -51,9 +55,8 @@ function EeraPanel({
         you with today?
       </p>
       <p className="eera-panel__voice-note">
-        Microphone starts only when you choose Listen. Chrome may use an online
-        speech service; {identity.name} does not save audio. Speech output uses browser
-        voices.
+        Activate Eera to wait for “Hey Eera”. Chrome may use an online speech
+        service; {identity.name} does not save audio.
       </p>
       <label className="eera-language">
         <span>Recognition language</span>
@@ -61,8 +64,10 @@ function EeraPanel({
           value={language}
           onChange={(event) => onLanguageChange(event.target.value)}
           disabled={
-            isListening ||
             isSpeaking ||
+            ['acquiring', 'processing', 'speaking', 'returning-to-standby'].includes(
+              sessionState,
+            ) ||
             recognitionStatus === 'starting' ||
             recognitionStatus === 'stopping'
           }
@@ -74,16 +79,19 @@ function EeraPanel({
           ))}
         </select>
       </label>
-      <button
-        className="eera-listen-button"
-        type="button"
-        onClick={onToggleListening}
-        disabled={
-          recognitionStatus === 'starting' || recognitionStatus === 'stopping'
-        }
-      >
-        {isListening ? 'Stop listening' : 'Listen'}
-      </button>
+      {isSessionActive ? (
+        <button
+          className="eera-listen-button"
+          type="button"
+          onClick={onDeactivateAssistant}
+        >
+          Deactivate Eera
+        </button>
+      ) : (
+        <p className="eera-panel__voice-note">
+          Click the orb to activate wake-word listening.
+        </p>
+      )}
       <Transcript
         errorMessage={errorMessage}
         assistantName={identity.name}
