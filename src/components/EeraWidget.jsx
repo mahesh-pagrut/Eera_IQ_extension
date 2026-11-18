@@ -17,6 +17,9 @@ import {
   createMessageRouter,
   createVoiceResponseHandler,
 } from '../services/conversation/messageRouter.js';
+import { createConversationSessionManager } from '../services/conversationSessionManager.js';
+import { createMicrophoneSessionLease } from '../services/microphoneSessionLease.js';
+import { DEFAULT_CONVERSATION_SESSION_CONFIG } from '../services/wakeWord/wakeWordConfig.js';
 import { EERA_IDENTITY } from '../data/personality/eeraIdentity.js';
 
 function EeraWidget() {
@@ -34,7 +37,7 @@ function EeraWidget() {
   }
   const [isOpen, setIsOpen] = useState(false);
   const [recognitionStatus, setRecognitionStatus] = useState('idle');
-  const [isProcessing, setIsProcessing] = useState(false);
+  const [sessionState, setSessionState] = useState('inactive');
   const [transcript, setTranscript] = useState('');
   const [response, setResponse] = useState('');
   const [errorMessage, setErrorMessage] = useState('');
@@ -49,28 +52,27 @@ function EeraWidget() {
   const [synthesisSupported, setSynthesisSupported] = useState(false);
   const speechRecognitionRef = useRef(null);
   const speechSynthesisRef = useRef(null);
-  const recognitionStatusRef = useRef('idle');
+  const sessionManagerRef = useRef(null);
   const recognitionLanguageRef = useRef(language);
-  const isOpenRef = useRef(isOpen);
-  const interactionGenerationRef = useRef(0);
-  const lastRespondedTranscriptRef = useRef('');
+  const isMountedRef = useRef(false);
   recognitionLanguageRef.current = language;
-  isOpenRef.current = isOpen;
-  const spokeDuringCurrentRecognitionRef = useRef(false);
   const speaking =
     synthesisStatus === 'starting' || synthesisStatus === 'speaking';
-  let actualAssistantState = ASSISTANT_STATES.IDLE;
-  if (synthesisStatus === 'error') {
-    actualAssistantState = ASSISTANT_STATES.ERROR;
-  } else if (speaking) {
-    actualAssistantState = ASSISTANT_STATES.SPEAKING;
-  } else if (recognitionStatus === 'error') {
-    actualAssistantState = ASSISTANT_STATES.ERROR;
-  } else if (recognitionStatus === 'listening') {
-    actualAssistantState = ASSISTANT_STATES.LISTENING;
-  } else if (recognitionStatus === 'processing' || isProcessing) {
-    actualAssistantState = ASSISTANT_STATES.PROCESSING;
-  }
+  const sessionOrbStates = {
+    inactive: ASSISTANT_STATES.IDLE,
+    acquiring: ASSISTANT_STATES.PROCESSING,
+    'wake-word-standby': ASSISTANT_STATES.LISTENING,
+    'command-listening': ASSISTANT_STATES.LISTENING,
+    processing: ASSISTANT_STATES.PROCESSING,
+    speaking: ASSISTANT_STATES.SPEAKING,
+    'follow-up': ASSISTANT_STATES.LISTENING,
+    'returning-to-standby': ASSISTANT_STATES.LISTENING,
+    error: ASSISTANT_STATES.ERROR,
+  };
+  const actualAssistantState =
+    synthesisStatus === 'error'
+      ? ASSISTANT_STATES.ERROR
+      : sessionOrbStates[sessionState] ?? ASSISTANT_STATES.IDLE;
   const assistantState =
     import.meta.env.DEV && previewState
       ? previewState
@@ -78,41 +80,46 @@ function EeraWidget() {
   const isListening = recognitionStatus === 'listening';
 
   useEffect(() => {
-    const speechRecognition = createSpeechRecognitionService({ language });
+    isMountedRef.current = true;
+    const speechRecognition = createSpeechRecognitionService({
+      language,
+      continuous: true,
+    });
     const speechSynthesis = createSpeechSynthesisService();
+    const microphoneLease = createMicrophoneSessionLease();
     speechRecognitionRef.current = speechRecognition;
     speechSynthesisRef.current = speechSynthesis;
     setSynthesisSupported(speechSynthesis.isSupported());
 
-    const unsubscribeTranscript = speechRecognition.onTranscript(
-      ({ text, isFinal }) => {
-        setTranscript(text);
-        if (!isFinal || lastRespondedTranscriptRef.current === text) return;
-        lastRespondedTranscriptRef.current = text;
-        void handleFinalTranscript(text);
+    const sessionManager = createConversationSessionManager({
+      recognition: speechRecognition,
+      microphoneLease,
+      followUpWindowMs:
+        DEFAULT_CONVERSATION_SESSION_CONFIG.followUpWindowMs,
+      inactivityTimeoutMs:
+        DEFAULT_CONVERSATION_SESSION_CONFIG.inactivityTimeoutMs,
+      onRequest: handleSessionRequest,
+      onTranscript: ({ text }) => setTranscript(text),
+      onStateChange: (nextState) => {
+        setSessionState(nextState);
+        if (nextState === 'inactive') {
+          setIsOpen(false);
+        } else if (nextState !== 'error') {
+          setErrorMessage('');
+        }
       },
-    );
-    const unsubscribeError = speechRecognition.onError((error) => {
-      setErrorMessage(error.message);
+      onError: (error) => {
+        setErrorMessage(error.message);
+      },
     });
+    sessionManagerRef.current = sessionManager;
     const unsubscribeStatus = speechRecognition.onStatusChange((status) => {
-      recognitionStatusRef.current = status;
       setRecognitionStatus(status);
-      if (status !== 'error') setErrorMessage('');
     });
     const unsubscribeSynthesisStatus = speechSynthesis.onStatusChange(
       (status) => {
         setSynthesisStatus(status);
-        if (status === 'speaking' || status === 'idle' || status === 'error') {
-          setIsProcessing(false);
-        }
-        if (status === 'idle' && spokeDuringCurrentRecognitionRef.current) {
-          spokeDuringCurrentRecognitionRef.current = false;
-          if (recognitionStatusRef.current === 'processing') {
-            recognitionStatusRef.current = 'idle';
-            setRecognitionStatus('idle');
-          }
-        }
+        sessionManager.handleSpeechStatus(status);
         if (status !== 'error') setErrorMessage('');
       },
     );
@@ -121,101 +128,75 @@ function EeraWidget() {
     });
     const unsubscribeVoices = speechSynthesis.onVoicesChange((voices) => {
       setAvailableVoices(voices);
-    });
+    }    );
 
     return () => {
-      interactionGenerationRef.current += 1;
-      unsubscribeTranscript();
-      unsubscribeError();
+      isMountedRef.current = false;
       unsubscribeStatus();
       unsubscribeVoices();
       unsubscribeSynthesisStatus();
       unsubscribeSynthesisError();
-      speechRecognition.dispose();
+      sessionManager.dispose();
       speechSynthesis.dispose();
       speechRecognitionRef.current = null;
       speechSynthesisRef.current = null;
+      sessionManagerRef.current = null;
     };
   }, []);
 
-  async function handleFinalTranscript(text) {
-    const generation = interactionGenerationRef.current;
-    setIsProcessing(true);
+  async function handleSessionRequest(text) {
+    if (!isMountedRef.current) return { speechStarted: false };
     try {
-      await speechRecognitionRef.current?.stopListening();
-      if (generation !== interactionGenerationRef.current || !isOpenRef.current) {
-        return;
-      }
-
       const { result, speechStarted } =
         await conversationRef.current.handleMessage(text, {
-        preferredLanguage: recognitionLanguageRef.current,
-      });
-      if (generation !== interactionGenerationRef.current || !isOpenRef.current) {
-        return;
-      }
-
+          preferredLanguage: recognitionLanguageRef.current,
+        });
+      if (!isMountedRef.current) return { speechStarted: false };
       setResponse(result.response);
-      if (!speechStarted) setIsProcessing(false);
+      return { speechStarted };
     } catch (error) {
-      if (generation === interactionGenerationRef.current) {
-        setIsProcessing(false);
-        setErrorMessage(
-          error.message || `${EERA_IDENTITY.name} could not process that request.`,
-        );
+      setErrorMessage(
+        error.message || `${EERA_IDENTITY.name} could not process that request.`,
+      );
+      throw error;
+    }
+  }
+
+  function handleOrbClick() {
+    const sessionManager = sessionManagerRef.current;
+    if (!isOpen || sessionState === 'error') {
+      setIsOpen(true);
+      setTranscript('');
+      setResponse('');
+      setErrorMessage('');
+      if (sessionManager && !sessionManager.isActive()) {
+        void sessionManager.activate();
+      } else {
+        sessionManager?.noteActivity();
       }
-    }
-  }
-
-  function togglePanel() {
-    interactionGenerationRef.current += 1;
-    if (isOpen) {
-      isOpenRef.current = false;
-      setIsProcessing(false);
-      speechRecognitionRef.current?.stopListening();
-      speechSynthesisRef.current?.stopSpeaking();
-    } else {
-      isOpenRef.current = true;
-    }
-    setIsOpen(!isOpen);
-  }
-
-  function clearConversation() {
-    interactionGenerationRef.current += 1;
-    speechRecognitionRef.current?.stopListening();
-    speechSynthesisRef.current?.stopSpeaking();
-    conversationRef.current.engine.clear();
-    lastRespondedTranscriptRef.current = '';
-    setTranscript('');
-    setResponse('');
-    setErrorMessage('');
-    setIsProcessing(false);
-  }
-
-  function toggleListening() {
-    interactionGenerationRef.current += 1;
-    setIsProcessing(false);
-    const speechRecognition = speechRecognitionRef.current;
-    if (!speechRecognition) return;
-    if (isListening) {
-      speechRecognition.stopListening();
       return;
     }
 
-    if (['starting', 'speaking'].includes(synthesisStatus)) {
-      speechSynthesisRef.current?.stopSpeaking();
-    }
-    if (synthesisStatus === 'error') setSynthesisStatus('idle');
+    setIsOpen(false);
+  }
+
+  function clearConversation() {
+    conversationRef.current.engine.clear();
     setTranscript('');
     setResponse('');
     setErrorMessage('');
-    lastRespondedTranscriptRef.current = '';
-    speechRecognition.startListening();
+    speechSynthesisRef.current?.stopSpeaking();
+    void sessionManagerRef.current?.resetToWakeWordStandby();
   }
 
-  function handleLanguageChange(nextLanguage) {
+  function deactivateAssistant() {
+    void sessionManagerRef.current?.deactivate('manual');
+    speechSynthesisRef.current?.stopSpeaking();
+  }
+
+  async function handleLanguageChange(nextLanguage) {
     try {
-      speechRecognitionRef.current?.setLanguage(nextLanguage);
+      await sessionManagerRef.current?.setLanguage(nextLanguage);
       setLanguage(nextLanguage);
       recognitionLanguageRef.current = nextLanguage;
       setErrorMessage('');
@@ -225,34 +206,21 @@ function EeraWidget() {
   }
 
   function speak(text, overrides) {
-    const recognition = speechRecognitionRef.current;
-    const shouldStopRecognition = ['starting', 'listening'].includes(
-      recognition?.getStatus(),
-    );
-    const recognitionWasProcessing =
-      recognitionStatusRef.current === 'processing';
-
     function startSpeech() {
+      if (!isMountedRef.current) return false;
       setErrorMessage('');
-      if (recognitionStatusRef.current === 'error') {
-        recognitionStatusRef.current = 'idle';
-        setRecognitionStatus('idle');
-      }
-      spokeDuringCurrentRecognitionRef.current = recognitionWasProcessing;
       try {
         return speechSynthesisRef.current?.speak(text, overrides) ?? false;
       } catch (error) {
-        spokeDuringCurrentRecognitionRef.current = false;
         setSynthesisStatus('error');
         setErrorMessage(error.message);
         return false;
       }
     }
 
-    if (shouldStopRecognition) {
-      return recognition.stopListening().then(startSpeech);
-    }
-    return startSpeech();
+    return Promise.resolve(sessionManagerRef.current?.pauseRecognition()).then(
+      startSpeech,
+    );
   }
 
   function stopSpeaking() {
@@ -301,14 +269,18 @@ function EeraWidget() {
         devSpeechControls={devSpeechControls}
         identity={EERA_IDENTITY}
         errorMessage={errorMessage}
-        isListening={isListening}
         isSpeaking={speaking}
+        isSessionActive={sessionManagerRef.current?.isActive() ?? false}
         isOpen={isOpen}
         language={language}
+        followUpSeconds={
+          DEFAULT_CONVERSATION_SESSION_CONFIG.followUpWindowMs / 1_000
+        }
         onLanguageChange={handleLanguageChange}
         onClearConversation={clearConversation}
-        onToggleListening={toggleListening}
+        onDeactivateAssistant={deactivateAssistant}
         recognitionStatus={recognitionStatus}
+        sessionState={sessionState}
         response={response}
         transcript={transcript}
       />
@@ -316,7 +288,7 @@ function EeraWidget() {
         assistantName={EERA_IDENTITY.name}
         assistantState={assistantState}
         isOpen={isOpen}
-        onClick={togglePanel}
+        onClick={handleOrbClick}
       />
       {import.meta.env.DEV && (
         <AssistantStatePreview
