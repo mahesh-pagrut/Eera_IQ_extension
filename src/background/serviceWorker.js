@@ -1,3 +1,5 @@
+import { createMicrophoneSessionLeaseBroker } from '../services/microphoneSessionLease.js';
+
 console.info('Eera background service worker ready.');
 
 chrome.runtime.onInstalled.addListener(() => {
@@ -128,6 +130,11 @@ chrome.runtime.onConnect.addListener((port) => {
       activeSpeech = null;
     }
   });
+});
+
+const microphoneSessionLeaseBroker = createMicrophoneSessionLeaseBroker();
+chrome.runtime.onConnect.addListener((port) => {
+  microphoneSessionLeaseBroker.handlePort(port);
 });
 
 chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
