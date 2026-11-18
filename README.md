@@ -2,7 +2,7 @@
 
 Eera is a personal AI browser assistant being developed as a Chrome extension. The long-term goal is a friendly, conversational assistant that can help with browser tasks using voice and text.
 
-The project has completed **Milestones 1–6**: project foundation, floating assistant UI, orb animations, speech recognition/synthesis, a local voice-response pipeline, and a modular personality/conversation engine. Eera displays the same floating assistant widget on its custom new-tab page and on normal HTTP/HTTPS webpages.
+The project has implemented **Milestones 1–7**: project foundation, floating assistant UI, orb animations, speech recognition/synthesis, a local voice-response pipeline, a modular personality/conversation engine, and a controlled wake-word/follow-up session. Eera displays the same floating assistant widget on its custom new-tab page and on normal HTTP/HTTPS webpages.
 
 ## Technology
 
@@ -65,13 +65,13 @@ The build then runs a second Vite configuration to produce `dist/content/content
 3. Turn on **Developer mode**.
 4. Choose **Load unpacked**.
 5. Select this project's `dist` directory.
-6. Open a new tab to see the floating Eera orb. Click it to open or close the assistant panel.
+6. Open a new tab to see the floating Eera orb. Click it to activate Eera and open or close the assistant panel.
 
 After rebuilding, use **Reload** on the extension card in `chrome://extensions` to load updated output.
 
 ## Floating assistant
 
-The widget contains Eera's gradient orb, a greeting and readiness status, recognition-language selection, explicit Listen/Stop controls, and a transcript. The new-tab page and website content script reuse the same React components.
+The widget contains Eera's gradient orb, a greeting and readiness status, recognition-language selection, an activation/deactivation control, and a transcript. The new-tab page and website content script reuse the same React components.
 
 The orb has five visual states: **idle** (gentle breathing and aura), **listening** (expanding sound-wave rings), **processing** (rotating rainbow aura), **speaking** (stronger layered pulsing glow), and **error** (subtle warm warning pulse). These states reflect recognition, command processing, and speech output events. The animations respect the operating system's reduced-motion preference.
 
@@ -82,12 +82,13 @@ The manifest declares `http://*/*` and `https://*/*` host access and matching co
 ## Voice input
 
 1. Load or reload the unpacked extension, then open a new tab or a normal HTTP/HTTPS page.
-2. Click the orb to open Eera's panel.
-3. Choose **English (India)** (`en-IN`, the default), **English (US)** (`en-US`), or **Hindi / Hinglish (Hindi recognition)** (`hi-IN`).
-4. Click **Listen** and respond to Chrome's microphone permission prompt. Speak one utterance; the transcript updates with interim words and the final text.
-5. Click **Stop listening** to stop early, or click the orb to close the panel and stop recognition. Click **Listen** again to retry or start another utterance.
+2. Click the orb to activate Eera. This explicitly starts microphone recognition; allow the browser permission prompt if asked.
+3. Choose **English (India)** (`en-IN`, the default), **English (US)** (`en-US`), or **Hindi / Hinglish (Hindi recognition)** (`hi-IN`). Eera restarts recognition with the selected language.
+4. Say **“Hey Eera”**, then speak a request. Saying the wake phrase and request in one utterance is also supported. Chrome may transcribe it as “Hey Era,” “Hey Erra,” or collapse it to “Here”; Hindi recognition spellings such as “हे एरा” and “हे ईरा” are also accepted. The one-word “Here” variant activates only when followed by a request. Other speech without a matching wake phrase is ignored while in standby.
+5. After Eera replies, speak another request within the 12-second follow-up window without repeating the wake phrase. After the window, Eera returns to wake-word standby. It deactivates after 60 minutes without meaningful interaction.
+6. Click **Deactivate Eera** in the panel to stop the microphone. The orb can hide/show the panel without deactivating an active session. When inactive, click the orb to activate again.
 
-Listening never starts automatically. Recognition is one utterance per explicit start, and Eera does not silently restart it. Denying microphone access displays an error; allow microphone access for the current context in Chrome's site settings before retrying. Chrome controls the browser-level microphone indicator and permission.
+Wake detection is phrase matching over recognized speech, not native or on-device wake-word detection. Matching preserves Hindi Unicode marks and allows a small set of common speech-recognition spellings for “Eera.” The collapsed “Here” variant is accepted only at the start of a transcript; when it arrives as its own recognition result, Eera waits for the following command. Continuous recognition may disconnect or be unsupported in some contexts; Eera attempts at most three delayed recoveries before surfacing an error. Permission denial, missing microphone, unsupported recognition, and speech-service errors are surfaced and do not cause infinite retries. If another Eera tab already owns microphone recognition, activation is declined until it is deactivated.
 
 Eera does not record or save audio and does not upload it to an Eera server. Chrome's [Web Speech implementation](https://developer.mozilla.org/en-US/docs/Web/API/SpeechRecognition) may send audio to its online recognition service; network access may be required and service behavior depends on Chrome and its speech provider. Review Chrome's speech and privacy settings before use. Hinglish results are not guaranteed: mixed-language recognition depends on Chrome's service and the selected language.
 
@@ -112,9 +113,9 @@ Conversation context is held in memory only for the lifetime of the widget. It k
 
 In the production extension, `src/services/speechSynthesis.js` uses `chrome.tts` (the manifest's `tts` permission) directly on Eera's new-tab page. On websites, it routes speech requests to the MV3 service worker over a named extension port because content scripts cannot call `chrome.tts` directly. If that bridge disconnects, the service falls back to browser Web Speech synthesis and reports an error if that also fails. Chrome uses platform/installed voices (SAPI 5 on Windows); voice names and language coverage vary, and a female-sounding voice is not guaranteed. Defaults are `en-IN`, rate `1.0`, pitch `1.05`, and volume `1.0`. There is no Eera speech server or paid API. The Vite-only speech preview still uses the browser Web Speech API and does not exercise the production extension bridge.
 
-Speech output stops active recognition before beginning and does not automatically resume listening. Closing the panel stops recognition and speech. Microphone capture begins only after the user presses **Listen**; Chrome may send recognition audio to its own online speech service. Eera does not record or save audio.
+Speech output pauses recognition so Eera does not intentionally process its own reply; recognition resumes in the follow-up state after speech ends. Deactivating Eera or the 60-minute inactivity timeout stops recognition and clears timers. Closing the panel alone does not deactivate an active session. Chrome may send recognition audio to its own online speech service; Eera does not record or save audio.
 
-For development testing only, run `npm run dev` and use the **Speech test** controls to enter text, select a development-browser voice, adjust language/rate/pitch/volume, speak, or stop. These controls are removed from production builds. To test the actual production path, build and reload `dist/` in Chrome, then use Listen and speak a supported command. Playback must be confirmed by listening on the device; mocked service tests and playback events alone do not prove audible output.
+For development testing only, run `npm run dev` and use the **Speech test** controls to enter text, select a development-browser voice, adjust language/rate/pitch/volume, speak, or stop. These controls are removed from production builds. To test wake-word behavior, build and reload `dist/` in Chrome, activate Eera, say “Hey Eera”, then speak a supported request; test a follow-up within 12 seconds, the timeout back to standby, and **Deactivate Eera**. Actual microphone, recognition, and audio behavior must be tested in the installed Chrome extension; mocked tests do not establish that the speech service works in a particular browser context.
 
 For Milestone 6 testing, try “Hello”, “Who are you?”, “Who created you?”, “What can you do?”, “Thanks”, “How are you?”, “Tell me more”, and “What did I ask?” in English, Hindi, and Hinglish. Verify the transcript, displayed answer, spoken language, and the **Clear conversation** action. Existing browser commands such as “Open YouTube” and “Search Google for cats” should still execute through the command pipeline.
 
@@ -129,11 +130,14 @@ For Milestone 6 testing, try “Hello”, “Who are you?”, “Who created you
 
 - Replaces Chrome's new-tab page with the floating Eera assistant.
 - Injects the same widget on normal HTTP and HTTPS pages using a Shadow DOM content script.
-- Orb interaction opens and closes the assistant panel. State selection is available only in the Vite development page for animation review; it is not included in the production UI.
-- Listening, processing, speaking, and error orb states follow the active voice pipeline.
+- Clicking the orb activates Eera while inactive and toggles the panel while active. **Deactivate Eera** explicitly stops listening.
+- Standby, command listening, processing, speaking, follow-up, and error are reflected in the panel status and mapped to the existing orb animation states.
+- The default wake phrase is `Hey Eera`. Common recognized variants (`Hey Era`, `Hey Erra`, `Here` followed by a request, `हे एरा`, and `हे ईरा`) are accepted; standby ignores speech that does not contain a matching wake phrase.
+- A 12-second follow-up window and 60-minute inactivity timeout are configurable in `src/services/wakeWord/wakeWordConfig.js`.
+- The MV3 worker brokers a single microphone lease so the new-tab page and website widget do not intentionally run separate recognition sessions simultaneously.
 - The production voice response path uses Chrome's `chrome.tts` API; the development-only Speech test interface exercises browser speech synthesis instead.
 - Speech output supports `en-IN`, `en-US`, and `hi-IN`; voice availability and voice gender identification are platform-dependent.
 - Final recognition results support a small allowlisted browser-command set plus local personality responses. This is not a general AI system; YouTube playback and arbitrary navigation are not implemented.
-- Recognition depends on Chrome exposing the Web Speech API and its speech service; language quality and availability are not guaranteed. An earlier development-browser attempt returned a network error, but English recognition was subsequently confirmed by the user in installed Chrome.
-- After reloading the previous `dist` build, the user confirmed audible replies and “open YouTube” on both surfaces. Milestone 6's newly added conversational responses are covered by automated tests; Hindi/Hinglish live recognition and speech still need manual verification. No wake-word detection, external AI, or general browser automation is implemented.
+- Recognition depends on Chrome exposing the Web Speech API and its speech service; language quality and availability are not guaranteed. Continuous recognition is not guaranteed to stay connected. Recovery is bounded to three attempts with increasing delays.
+- The user confirmed that the wake phrase successfully triggers “open YouTube” on a YouTube tab. The follow-up/timer/recovery states are covered by automated tests; other Chrome scenarios (including the custom new-tab page, permission denial, and inactivity timeout) still need manual verification. No local wake-word model, external AI, or general browser automation is implemented.
 - Chrome website microphone permission behavior should be manually checked on both HTTP and HTTPS pages. See [DEVELOPMENT.md](./DEVELOPMENT.md) for the test record and remaining checks.
