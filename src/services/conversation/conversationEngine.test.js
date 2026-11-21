@@ -138,14 +138,21 @@ test('routes browser commands only to the command executor and conversations onl
   const engine = createDeterministicEngine();
   const route = createMessageRouter({
     conversationEngine: engine,
-    execute: async (command, options) => {
-      executed.push({ command, options });
-      return { response: 'Opening YouTube.' };
+    handlers: {
+      'open-youtube': {
+        validateParameters: (parameters) =>
+          Object.keys(parameters).length ? 'Unexpected parameters.' : null,
+        async execute(_parameters, options) {
+          executed.push({ command: options, options });
+          return { ok: true, response: 'Opening YouTube.' };
+        },
+      },
     },
   });
 
   const commandResult = await route('open YouTube');
   assert.equal(commandResult.source, 'command');
+  assert.equal(commandResult.ok, true);
   assert.equal(commandResult.response, 'Opening YouTube.');
   assert.equal(executed.length, 1);
   assert.equal(executed[0].command.intent, 'open-youtube');
