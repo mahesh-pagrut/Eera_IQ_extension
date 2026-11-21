@@ -163,13 +163,15 @@ test('uses chrome.tts directly from extension pages when the API is available', 
   service.dispose();
 });
 
-test('falls back to browser synthesis if the extension speech receiver disconnects', () => {
-  const port = new MockChromePort();
+test('falls back to browser synthesis after the retried speech receiver disconnects', () => {
+  const firstPort = new MockChromePort();
+  const secondPort = new MockChromePort();
+  const ports = [firstPort, secondPort];
   const synthesis = new MockSynthesis();
   const service = createSpeechSynthesisService({
     getRuntime: () => ({
       id: 'test-extension',
-      connect: () => port,
+      connect: () => ports.shift(),
     }),
     getSynthesis: () => synthesis,
     getUtterance: () => MockUtterance,
@@ -179,12 +181,70 @@ test('falls back to browser synthesis if the extension speech receiver disconnec
   service.onVoicesChange(() => {});
   assert.equal(service.speak('Fallback response'), true);
 
-  port.disconnect();
+  firstPort.disconnect();
+  assert.equal(secondPort.messages.at(-1).type, 'speak');
+  secondPort.disconnect();
+
   assert.equal(synthesis.utterances.length, 1);
   assert.equal(synthesis.utterances[0].text, 'Fallback response');
   synthesis.utterances[0].onstart();
   assert.equal(service.getStatus(), 'speaking');
   assert.deepEqual(statuses, ['starting', 'starting', 'speaking']);
+  service.dispose();
+});
+
+test('reconnects once and resends an in-flight reply after the speech port disconnects', () => {
+  const firstPort = new MockChromePort();
+  const secondPort = new MockChromePort();
+  const ports = [firstPort, secondPort];
+  const runtime = {
+    id: 'test-extension',
+    connect: () => ports.shift(),
+  };
+  const service = createSpeechSynthesisService({ getRuntime: () => runtime });
+  const errors = [];
+  service.onError((error) => errors.push(error));
+
+  assert.equal(service.speak('Opening a new tab.'), true);
+  const request = firstPort.messages.at(-1);
+  assert.equal(request.type, 'speak');
+
+  firstPort.disconnect();
+
+  assert.equal(secondPort.messages.length, 1);
+  assert.deepEqual(secondPort.messages[0], request);
+  assert.equal(errors.length, 0);
+  secondPort.emit({
+    type: 'event',
+    requestId: request.requestId,
+    event: { type: 'start' },
+  });
+  assert.equal(service.getStatus(), 'speaking');
+  secondPort.emit({
+    type: 'event',
+    requestId: request.requestId,
+    event: { type: 'end' },
+  });
+  assert.equal(service.getStatus(), 'idle');
+  service.dispose();
+});
+
+test('does not report a speech error when only voice-list loading disconnects', () => {
+  const port = new MockChromePort();
+  const service = createSpeechSynthesisService({
+    getRuntime: () => ({
+      id: 'test-extension',
+      connect: () => port,
+    }),
+  });
+  const errors = [];
+  service.onError((error) => errors.push(error));
+  service.onVoicesChange(() => {});
+  assert.equal(port.messages[0].type, 'get-voices');
+
+  port.disconnect();
+
+  assert.deepEqual(errors, []);
   service.dispose();
 });
 
