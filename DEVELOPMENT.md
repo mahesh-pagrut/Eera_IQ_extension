@@ -92,10 +92,14 @@ Status values: **Complete**, **Partial**, **Not started**.
 ## Milestone 8: Command parser and command dispatcher
 
 - **Objective:** Parse user input into explicit intents and route intents through a centralized dispatcher.
-- **Implementation status:** Partial foundation exists in `commandParser.js` and `commandExecutor.js`; the full milestone remains pending.
-- **Files affected:** To be determined; expected work in parser, dispatcher, command contracts, and tests.
-- **Testing requirements:** Test supported utterances, ambiguous input, unknown commands, and error propagation.
-- **Known issues:** Only a small fixed command set is implemented; modular command modules and broader validation/testing remain future work.
+- **Implementation status:** Complete; all 70 automated tests pass and the production build succeeds. The user manually verified the wake-word/YouTube flow; website browser actions and combined new-tab/search routing are covered by mocked regression tests.
+- **Architecture decision:** Keep parsing side-effect free, validate the structured parse result before dispatch, and register handler implementations separately. Route unsupported user text to the local conversation engine. Preserve the existing voice-response and recognition lifecycle.
+- **Files added:** `src/services/commandDispatcher.js`, `src/services/commandDispatcher.test.js`, `src/services/commandValidator.js`, `src/services/commands/browserCommandHandlers.js`.
+- **Files modified:** `src/services/commandParser.js`, `src/services/commandExecutor.js`, `src/services/commandPipeline.test.js`, `src/services/conversation/messageRouter.js`, `src/services/conversation/conversationEngine.test.js`, `src/services/conversationSessionManager.test.js`, `src/services/commands/browserCommandHandlers.js`, `README.md`, `ARCHITECTURE.md`, `DEVELOPMENT.md`.
+- **Features implemented:** Parser returns a normalized structured command or explicit unsupported result; dispatcher supports intent-based handler registration; validation checks required fields, parameter shapes, a 500-character search limit, and rejects unexpected values before execution. Built-in handlers cover local time, new-tab, YouTube open, and Google search. “Open new tab and search X” is parsed as one Google-search action, so it opens one results tab. Conversation text still uses the personality engine. Handler errors and browser-action failures return unsuccessful responses rather than claiming success.
+- **Testing completed:** `npm test` passed 70 tests; `npm run build` passed for the new-tab page, MV3 module worker, and self-contained content script. Tests cover English/Hindi/Hinglish parser variations, parameter extraction, combined new-tab/search phrasing, malformed commands, missing/long search terms, safe fixed Google destination construction, default website-to-worker browser action messaging, dynamic handler registration, handler errors, conversation routing, response-to-speech integration, and Milestone 7 wake/follow-up regressions.
+- **Manual Chrome testing:** After building and reloading `dist/`, test “open YouTube”, “search Google for cats”, “what time is it?”, “open a new tab”, and conversational messages on the new-tab page and a regular website. Confirm browser actions open only the expected fixed destinations and that the spoken response follows. Automated tests mock browser APIs and do not verify Chrome behavior.
+- **Known limitations:** Parsing uses deterministic phrase patterns, not semantic language understanding. English/Hindi/Hinglish coverage is limited to tested patterns. This milestone does not add command categories or advanced YouTube functionality.
 
 ## Milestone 9: YouTube search and playback
 
