@@ -220,8 +220,9 @@ function createChromeTtsService({
       throw new Error('Chrome extension speech output is unavailable.');
     }
 
-    port = runtime.connect({ name: 'eera-tts' });
-    port.onMessage.addListener((message) => {
+    const connectedPort = runtime.connect({ name: 'eera-tts' });
+    port = connectedPort;
+    connectedPort.onMessage.addListener((message) => {
       if (disposed) return;
       if (message?.type === 'voices') {
         availableVoices = normalizeVoices(message.voices ?? []);
@@ -244,23 +245,52 @@ function createChromeTtsService({
 
       handleTtsEvent(message.requestId, message.event);
     });
-    port.onDisconnect.addListener(() => {
-      const wasDisposed = disposed;
+    connectedPort.onDisconnect.addListener(() => {
       const disconnectMessage = runtime.lastError?.message;
-      port = null;
-      if (!wasDisposed) {
-        if (!startFallback(currentSpeech)) {
-          reportError(
-            new Error(
-              disconnectMessage
-                ? `Eera's background speech service is unavailable: ${disconnectMessage}`
-                : 'Eera lost its background speech connection. Reload the extension and retry.',
-            ),
-          );
+      if (port === connectedPort) port = null;
+      if (disposed || fallbackActive || !currentSpeech) return;
+
+      const speechRequest = currentSpeech;
+      if (
+        speechRequest.requestId === requestGeneration &&
+        speechRequest.reconnectAttempts < 1
+      ) {
+        speechRequest.reconnectAttempts += 1;
+        try {
+          ensurePort().postMessage(createSpeechRequestMessage(speechRequest));
+          return;
+        } catch {
+          port = null;
         }
       }
+
+      if (!startFallback(speechRequest)) {
+        reportError(
+          new Error(
+            disconnectMessage
+              ? `Eera's background speech service is unavailable: ${disconnectMessage}`
+              : 'Eera could not reconnect to its speech service.',
+          ),
+        );
+      }
     });
-    return port;
+    return connectedPort;
+  }
+
+  function createSpeechRequestMessage(request) {
+    const voice = getSelectedVoice();
+    return {
+      type: 'speak',
+      requestId: request.requestId,
+      text: request.text,
+      options: {
+        language: request.configuration.language,
+        rate: request.configuration.rate,
+        pitch: request.configuration.pitch,
+        volume: request.configuration.volume,
+        voiceName: voice?.voiceURI,
+      },
+    };
   }
 
   function send(message) {
@@ -311,6 +341,7 @@ function createChromeTtsService({
       requestId,
       text: text.trim(),
       configuration: nextConfiguration,
+      reconnectAttempts: 0,
     };
     fallbackActive = false;
     setStatus('starting');
@@ -339,18 +370,7 @@ function createChromeTtsService({
         return startFallback(currentSpeech) || (reportError(error), false);
       }
     }
-    return send({
-      type: 'speak',
-      requestId,
-      text: text.trim(),
-      options: {
-        language: nextConfiguration.language,
-        rate: nextConfiguration.rate,
-        pitch: nextConfiguration.pitch,
-        volume: nextConfiguration.volume,
-        voiceName: voice?.voiceURI,
-      },
-    });
+    return send(createSpeechRequestMessage(currentSpeech));
   }
 
   function stopSpeaking() {
