@@ -171,9 +171,15 @@ test('wake sessions preserve existing command and personality routing', async ()
   const actions = [];
   const routeMessage = createMessageRouter({
     conversationEngine: createConversationEngine(),
-    execute: async (command) => {
-      actions.push(command.intent);
-      return { response: 'Opening YouTube.' };
+    handlers: {
+      'open-youtube': {
+        validateParameters: (parameters) =>
+          Object.keys(parameters).length ? 'Unexpected parameters.' : null,
+        async execute(_parameters, options) {
+          actions.push(options.intent);
+          return { ok: true, response: 'Opening YouTube.' };
+        },
+      },
     },
   });
   const manager = createConversationSessionManager({
@@ -207,9 +213,15 @@ test('a collapsed wake transcript still routes open YouTube through the command 
   const actions = [];
   const routeMessage = createMessageRouter({
     conversationEngine: createConversationEngine(),
-    execute: async (command) => {
-      actions.push(command.intent);
-      return { response: 'Opening YouTube.' };
+    handlers: {
+      'open-youtube': {
+        validateParameters: (parameters) =>
+          Object.keys(parameters).length ? 'Unexpected parameters.' : null,
+        async execute(_parameters, options) {
+          actions.push(options.intent);
+          return { ok: true, response: 'Opening YouTube.' };
+        },
+      },
     },
   });
   const manager = createConversationSessionManager({
