@@ -1,24 +1,21 @@
+import { createCommandDispatcher } from '../commandDispatcher.js';
 import { parseCommand } from '../commandParser.js';
-import { executeCommand } from '../commandExecutor.js';
-import {
-  detectConversationLanguage,
-  getSpeechLanguage,
-} from './languageDetector.js';
-
-const EXECUTABLE_COMMANDS = new Set([
-  'time',
-  'new-tab',
-  'open-youtube',
-  'google-search',
-]);
+import { createBrowserCommandHandlers } from '../commands/browserCommandHandlers.js';
 
 export function createMessageRouter({
   conversationEngine,
   parse = parseCommand,
-  execute = executeCommand,
+  handlers = createBrowserCommandHandlers(),
+  dispatcher,
 } = {}) {
-  if (!conversationEngine || typeof conversationEngine.respond !== 'function') {
-    throw new TypeError('Message router requires a conversation engine.');
+  const commandDispatcher =
+    dispatcher ??
+    createCommandDispatcher({
+      conversationEngine,
+      handlers,
+    });
+  if (typeof commandDispatcher.dispatch !== 'function') {
+    throw new TypeError('Message router requires a command dispatcher.');
   }
 
   return async function routeMessage(
@@ -28,34 +25,15 @@ export function createMessageRouter({
       executeOptions = {},
     } = {},
   ) {
-    const language = detectConversationLanguage(text, { preferredLanguage });
-    const speechLanguage = getSpeechLanguage(language, preferredLanguage);
-    const command = parse(text);
-
-    if (EXECUTABLE_COMMANDS.has(command.intent)) {
-      const { response } = await execute(command, {
-        ...executeOptions,
-        language: speechLanguage,
-      });
-      conversationEngine.remember({
-        user: text,
-        assistant: response,
-        intent: command.intent,
-        language,
-      });
-      return {
-        response,
-        intent: command.intent,
-        language,
-        speechLanguage,
-        source: 'command',
-      };
+    if (typeof text !== 'string' || !text.trim()) {
+      throw new TypeError('Message router requires non-empty text.');
     }
 
-    return {
-      ...conversationEngine.respond(text, { preferredLanguage }),
-      source: 'conversation',
-    };
+    return commandDispatcher.dispatch(parse(text), {
+      text,
+      preferredLanguage,
+      executeOptions,
+    });
   };
 }
 
